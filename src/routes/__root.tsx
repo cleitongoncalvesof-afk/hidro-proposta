@@ -80,14 +80,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "App mobile para calcular custo, definir preço e emitir propostas de grama líquida e mix de sementes.",
+          "Gere orçamentos de hidrossemeadura e propostas comerciais da 4G AGROVERDE direto do celular.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "4G AGROVERDE — Orçamentos e Propostas" },
+      { name: "twitter:description", content: "Gere orçamentos de hidrossemeadura e propostas comerciais da 4G AGROVERDE direto do celular." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f10e50bd-d32e-46f2-93f4-26bdf1128916" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f10e50bd-d32e-46f2-93f4-26bdf1128916" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
