@@ -1,0 +1,225 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { Trash2, Plus } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
+import { NumericInput } from "./novo";
+
+type Empresa = Database["public"]["Tables"]["empresa_config"]["Row"];
+type Template = Database["public"]["Tables"]["proposta_templates"]["Row"];
+type TipoApp = Database["public"]["Tables"]["tipos_aplicacao"]["Row"];
+
+export const Route = createFileRoute("/_authenticated/configuracoes")({
+  component: Configuracoes,
+});
+
+function Configuracoes() {
+  return (
+    <div className="space-y-4">
+      <h1 className="font-display text-lg font-semibold">Configurações</h1>
+      <Tabs defaultValue="empresa">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="empresa">Empresa</TabsTrigger>
+          <TabsTrigger value="templates">Propostas</TabsTrigger>
+          <TabsTrigger value="tipos">Tipos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="empresa"><EmpresaForm /></TabsContent>
+        <TabsContent value="templates"><TemplatesForm /></TabsContent>
+        <TabsContent value="tipos"><TiposForm /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function EmpresaForm() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["empresa"],
+    queryFn: async () => (await supabase.from("empresa_config").select("*").maybeSingle()).data,
+  });
+  const [form, setForm] = useState<Partial<Empresa>>({});
+  useEffect(() => {
+    if (data) setForm(data);
+  }, [data]);
+  const save = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("empresa_config").update(form).eq("user_id", u.user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["empresa"] });
+      toast.success("Salvo");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  if (!data) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  const set = <K extends keyof Empresa>(k: K, v: Empresa[K]) => setForm((f) => ({ ...f, [k]: v }));
+  return (
+    <div className="mt-3 space-y-3">
+      <Card className="space-y-3 p-3">
+        <F label="Razão social"><Input value={form.razao_social ?? ""} onChange={(e) => set("razao_social", e.target.value)} /></F>
+        <F label="Nome fantasia"><Input value={form.nome_fantasia ?? ""} onChange={(e) => set("nome_fantasia", e.target.value)} /></F>
+        <F label="Endereço"><Input value={form.endereco ?? ""} onChange={(e) => set("endereco", e.target.value)} /></F>
+        <F label="CNPJ"><Input value={form.cnpj ?? ""} onChange={(e) => set("cnpj", e.target.value)} /></F>
+        <F label="Telefone"><Input value={form.telefone ?? ""} onChange={(e) => set("telefone", e.target.value)} /></F>
+        <F label="E-mail"><Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></F>
+        <F label="Site"><Input value={form.site ?? ""} onChange={(e) => set("site", e.target.value)} /></F>
+        <F label="Dados bancários"><Input value={form.dados_bancarios ?? ""} onChange={(e) => set("dados_bancarios", e.target.value)} /></F>
+        <F label="Responsável"><Input value={form.responsavel ?? ""} onChange={(e) => set("responsavel", e.target.value)} /></F>
+        <F label="Cidade na assinatura"><Input value={form.cidade_assinatura ?? ""} onChange={(e) => set("cidade_assinatura", e.target.value)} /></F>
+      </Card>
+      <Card className="space-y-3 p-3">
+        <p className="font-display text-sm font-semibold text-primary">Padrões financeiros</p>
+        <div className="grid grid-cols-2 gap-2">
+          <F label="Margem padrão (0-2)"><NumericInput value={Number(form.margem_padrao ?? 0.7)} onChange={(v) => set("margem_padrao", v)} /></F>
+          <F label="Alíquota padrão (0-1)"><NumericInput value={Number(form.aliquota_padrao ?? 0.12)} onChange={(v) => set("aliquota_padrao", v)} /></F>
+        </div>
+        <F label="Condições de pagamento padrão"><Textarea rows={3} value={form.texto_condicoes_pagamento_padrao ?? ""} onChange={(e) => set("texto_condicoes_pagamento_padrao", e.target.value)} /></F>
+        <F label="Cláusulas de cobrança"><Textarea rows={6} value={form.texto_clausulas_cobranca ?? ""} onChange={(e) => set("texto_clausulas_cobranca", e.target.value)} /></F>
+      </Card>
+      <Button className="w-full" onClick={() => save.mutate()} disabled={save.isPending}>Salvar</Button>
+    </div>
+  );
+}
+
+function TemplatesForm() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["templates"],
+    queryFn: async () => (await supabase.from("proposta_templates").select("*")).data,
+  });
+  const [tipo, setTipo] = useState<"grama_liquida" | "mix_sementes">("grama_liquida");
+  const current = data?.find((t) => t.tipo === tipo);
+  const [form, setForm] = useState<Partial<Template>>({});
+  useEffect(() => {
+    if (current) setForm(current);
+  }, [current?.id]);
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!current) return;
+      const { error } = await supabase.from("proposta_templates").update(form).eq("id", current.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["templates"] });
+      toast.success("Salvo");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const set = <K extends keyof Template>(k: K, v: Template[K]) => setForm((f) => ({ ...f, [k]: v }));
+  if (!data) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  return (
+    <div className="mt-3 space-y-3">
+      <Select value={tipo} onValueChange={(v) => setTipo(v as "grama_liquida" | "mix_sementes")}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="grama_liquida">Grama Líquida</SelectItem>
+          <SelectItem value="mix_sementes">Mix de Sementes</SelectItem>
+        </SelectContent>
+      </Select>
+      <Card className="space-y-3 p-3">
+        <F label="Texto de abertura"><Textarea rows={5} value={form.texto_abertura ?? ""} onChange={(e) => set("texto_abertura", e.target.value)} /></F>
+        <F label="Responsabilidade da contratante"><Textarea rows={8} value={form.texto_responsabilidade_contratante ?? ""} onChange={(e) => set("texto_responsabilidade_contratante", e.target.value)} /></F>
+        <F label="Termos"><Textarea rows={6} value={form.texto_termos ?? ""} onChange={(e) => set("texto_termos", e.target.value)} /></F>
+        <F label="Termo de garantia"><Textarea rows={5} value={form.texto_garantia ?? ""} onChange={(e) => set("texto_garantia", e.target.value)} /></F>
+        <div className="grid grid-cols-2 gap-2">
+          <F label="Validade (dias)"><Input type="number" value={form.validade_dias ?? 10} onChange={(e) => set("validade_dias", Number(e.target.value))} /></F>
+          <F label="Despedida"><Input value={form.despedida ?? ""} onChange={(e) => set("despedida", e.target.value)} /></F>
+        </div>
+        {tipo === "mix_sementes" && (
+          <F label="Valor mobilização adicional padrão (R$)">
+            <NumericInput value={Number(form.valor_mobilizacao_adicional_padrao ?? 100)} onChange={(v) => set("valor_mobilizacao_adicional_padrao", v)} />
+          </F>
+        )}
+      </Card>
+      <Button className="w-full" onClick={() => save.mutate()} disabled={save.isPending}>Salvar</Button>
+    </div>
+  );
+}
+
+function TiposForm() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["tipos_aplicacao_all"],
+    queryFn: async () => (await supabase.from("tipos_aplicacao").select("*").order("proposta_tipo").order("nome")).data,
+  });
+  const [novo, setNovo] = useState<Partial<TipoApp>>({ nome: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida" });
+  const create = useMutation({
+    mutationFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase.from("tipos_aplicacao").insert({
+        user_id: u.user!.id,
+        nome: novo.nome!,
+        custo_padrao_m2: novo.custo_padrao_m2 ?? 0,
+        proposta_tipo: novo.proposta_tipo!,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNovo({ nome: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida" });
+      qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] });
+      toast.success("Adicionado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tipos_aplicacao").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] }),
+  });
+  return (
+    <div className="mt-3 space-y-3">
+      {(data ?? []).map((t) => (
+        <Card key={t.id} className="flex items-center justify-between p-3">
+          <div>
+            <p className="font-medium">{t.nome}</p>
+            <p className="text-xs text-muted-foreground">
+              {t.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix"} · R$ {Number(t.custo_padrao_m2).toFixed(2)}/m²
+            </p>
+          </div>
+          <button onClick={() => del.mutate(t.id)} className="text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </Card>
+      ))}
+      <Card className="space-y-2 p-3">
+        <p className="font-display text-sm font-semibold text-primary">Novo tipo</p>
+        <Input placeholder="Nome" value={novo.nome ?? ""} onChange={(e) => setNovo((n) => ({ ...n, nome: e.target.value }))} />
+        <div className="grid grid-cols-2 gap-2">
+          <NumericInput value={Number(novo.custo_padrao_m2 ?? 0)} onChange={(v) => setNovo((n) => ({ ...n, custo_padrao_m2: v }))} />
+          <Select value={novo.proposta_tipo} onValueChange={(v) => setNovo((n) => ({ ...n, proposta_tipo: v as "grama_liquida" | "mix_sementes" }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="grama_liquida">Grama Líquida</SelectItem>
+              <SelectItem value="mix_sementes">Mix de Sementes</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => create.mutate()} disabled={!novo.nome || create.isPending} className="w-full">
+          <Plus className="mr-1 h-4 w-4" /> Adicionar
+        </Button>
+      </Card>
+    </div>
+  );
+}
+
+function F({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
