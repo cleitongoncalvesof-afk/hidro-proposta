@@ -190,7 +190,6 @@ export type Database = {
           cliente_id: string | null
           combustivel_distancia_km: number
           combustivel_equipamento: number
-          combustivel_equipamento_modo: string
           combustivel_km_l: number
           combustivel_r_l: number
           condicoes_pagamento_customizadas: string | null
@@ -206,7 +205,6 @@ export type Database = {
           numero: number
           obra_descricao: string | null
           outras_despesas: number
-          pdf_url: string | null
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
           status: Database["public"]["Enums"]["orcamento_status"]
           updated_at: string
@@ -220,7 +218,6 @@ export type Database = {
           cliente_id?: string | null
           combustivel_distancia_km?: number
           combustivel_equipamento?: number
-          combustivel_equipamento_modo?: string
           combustivel_km_l?: number
           combustivel_r_l?: number
           condicoes_pagamento_customizadas?: string | null
@@ -236,7 +233,6 @@ export type Database = {
           numero: number
           obra_descricao?: string | null
           outras_despesas?: number
-          pdf_url?: string | null
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
           status?: Database["public"]["Enums"]["orcamento_status"]
           updated_at?: string
@@ -250,7 +246,6 @@ export type Database = {
           cliente_id?: string | null
           combustivel_distancia_km?: number
           combustivel_equipamento?: number
-          combustivel_equipamento_modo?: string
           combustivel_km_l?: number
           combustivel_r_l?: number
           condicoes_pagamento_customizadas?: string | null
@@ -266,7 +261,6 @@ export type Database = {
           numero?: number
           obra_descricao?: string | null
           outras_despesas?: number
-          pdf_url?: string | null
           proposta_tipo?: Database["public"]["Enums"]["proposta_tipo"]
           status?: Database["public"]["Enums"]["orcamento_status"]
           updated_at?: string
@@ -340,11 +334,8 @@ export type Database = {
           custo_padrao_m2: number
           descricao: string | null
           id: string
-          litros_por_tanque: number
           nome: string
-          preco_por_litro: number
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
-          rendimento_medio_m2: number
           user_id: string
         }
         Insert: {
@@ -352,11 +343,8 @@ export type Database = {
           custo_padrao_m2?: number
           descricao?: string | null
           id?: string
-          litros_por_tanque?: number
           nome: string
-          preco_por_litro?: number
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
-          rendimento_medio_m2?: number
           user_id: string
         }
         Update: {
@@ -364,11 +352,8 @@ export type Database = {
           custo_padrao_m2?: number
           descricao?: string | null
           id?: string
-          litros_por_tanque?: number
           nome?: string
-          preco_por_litro?: number
           proposta_tipo?: Database["public"]["Enums"]["proposta_tipo"]
-          rendimento_medio_m2?: number
           user_id?: string
         }
         Relationships: []

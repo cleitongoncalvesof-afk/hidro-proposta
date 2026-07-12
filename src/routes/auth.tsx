@@ -53,8 +53,8 @@ function AuthPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1F3D2B] p-2 shadow-md">
-            <img src={logoUrl} alt="4G AGROVERDE" className="h-full w-full object-contain" />
+          <div className="rounded-2xl bg-primary p-3">
+            <img src={logoUrl} alt="4G AGROVERDE" className="h-12 w-12" />
           </div>
           <div>
             <h1 className="font-display text-2xl font-bold text-primary">4G AGROVERDE</h1>

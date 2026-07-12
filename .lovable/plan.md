@@ -1,48 +1,85 @@
-## Plano — 6 ajustes no app 4G AGROVERDE
+# Plano — App 4G AGROVERDE (Orçamento + Proposta)
 
-### 1. Combustível do equipamento por m² (auto)
-- **Migração**: adicionar em `tipos_aplicacao` os campos `litros_por_tanque numeric`, `preco_por_litro numeric`, `rendimento_medio_m2 numeric`. Seed dos valores nos tipos existentes (VERDEPLAN/VERDEFLEX/VERDEMAX/PLANTIO DE GRAMA = 6,5 / 7,00 / 250; HIDROMANTA área plana = 6,5 / 6,50 / 625). Criar também tipos "Talude até 45°" e "Talude acima de 45°" se o usuário quiser (confirmar depois — por ora, valores editáveis via tela do item 6).
-- **Migração `orcamentos`**: adicionar `combustivel_equipamento_modo text default 'manual'` (`'manual' | 'auto_m2'`).
-- **Wizard "Custos Operacionais"** (`novo.tsx`): toggle "Calcular por m² × tipo" vs "Valor manual". No modo auto, mostrar tabela detalhada por item do orçamento: `custo/m² do tipo × m² do item = subtotal`, com total ao final. O campo manual fica desabilitado.
-- **`calc.ts`**: quando modo=auto, `combustivel_equipamento` = Σ (por item) `(litros_por_tanque × preco_por_litro / rendimento_medio_m2) × quantidade_m2`. Passar os tipos de aplicação como referência para o cálculo.
+Web app mobile-first (React + Tailwind + Lovable Cloud/Supabase) que substitui a planilha de custos e os modelos manuais por um fluxo único: escolher tipo de proposta → preencher → calcular → gerar PDF → enviar por WhatsApp.
 
-### 2. PWA instalável
-Escopo: **manifest-only** (instalação + ícone), sem service worker offline (o app depende de Supabase online — cache offline traz mais bugs que valor, e a skill PWA orienta usar SW só quando o usuário pede offline explicitamente).
-- `public/manifest.webmanifest` com nome "4G AGROVERDE Propostas", `theme_color:#1F3D2B`, `background_color:#F7F5EF`, `display:"standalone"`, `start_url:"/"`, ícones 192 e 512.
-- Gerar ícones PNG (logo em quadrado verde #1F3D2B) em `public/icon-192.png` e `public/icon-512.png` + `apple-touch-icon.png` 180×180.
-- Tags no `__root.tsx` head: `manifest`, `theme-color`, `apple-touch-icon`, `apple-mobile-web-app-capable`.
+## Antes de começar — 2 confirmações rápidas
 
-### 3. Logo com fundo escuro
-Wrapper com `bg-[#1F3D2B]` (verde-floresta) e padding em toda ocorrência do `<img src={logo}>`:
-- `AppShell.tsx` (topbar)
-- `auth.tsx` (tela de login) — também corrige o hydration mismatch atual dessa rota
-- `dashboard.tsx` se houver
-- `PropostaPreview.tsx` (cabeçalho do preview)
+1. **Logo**: usarei o `SVG_SEM_FUNDO.svg` como logo padrão da empresa (dentro do PDF e no cabeçalho do app), e o `SVG_COM_FUNDO.svg` como versão alternativa. OK?
+2. **Autenticação**: vou habilitar login por e-mail/senha (Lovable Cloud). Sem login social e sem confirmação por e-mail (para você já entrar direto após criar a conta). OK?
 
-### 4. Logo no PDF
-Em `lib/pdf.tsx`, adicionar `<Image>` do `@react-pdf/renderer` no header, dentro de uma `View` com `backgroundColor:"#1F3D2B"` e padding, à esquerda dos dados da empresa. Usar PNG (react-pdf não renderiza SVG de forma confiável) — reaproveitar o `icon-192.png` gerado no item 2, importado como asset.
+Se estiver tudo certo, aprove o plano e eu começo pela etapa 1.
 
-### 5. WhatsApp com PDF
-- **Storage**: criar bucket público `propostas-pdf` via tool. RLS em `storage.objects` permitindo insert/select apenas ao owner (`auth.uid()`) do path `{user_id}/...`; select público para leitura via URL.
-- **Fluxo no botão**: 
-  1. Gerar Blob do PDF (já existe `gerarPropostaPDF`).
-  2. Upload para `propostas-pdf/{user_id}/proposta-{numero}-{timestamp}.pdf`, salvar `pdf_url` em `orcamentos`.
-  3. Se `navigator.canShare({files:[file]})` → `navigator.share({title, text, files:[file]})`.
-  4. Fallback: `window.open("https://wa.me/?text=" + encodeURIComponent(mensagem + "\n\n" + pdfUrl))`.
-- **Migração `orcamentos`**: adicionar `pdf_url text`.
+## Etapas de construção
 
-### 6. CRUD Tipos de aplicação em Configurações
-- Nova aba/seção em `configuracoes.tsx` "Tipos de aplicação / insumos".
-- Lista mobile-first: cada tipo em card com nome, descrição, custo/m², e (se item 1 aprovado) os 3 campos de combustível. Edição inline com inputs + botão "Salvar"; botões "Adicionar" e "Remover" (com confirm).
-- CRUD direto contra `tipos_aplicacao` via cliente Supabase autenticado (RLS já existente por `user_id`).
+### 1. Backend (Lovable Cloud)
+- Habilitar Cloud.
+- Migrações com as tabelas: `empresa_config`, `proposta_templates` (2 linhas: `grama_liquida`, `mix_sementes`), `tipos_aplicacao`, `clientes`, `orcamentos`, `orcamento_itens`, `user_roles` + enum `app_role`, função `has_role`.
+- RLS: cada tabela filtrada por `user_id = auth.uid()`; templates/tipos/config editáveis pelo dono.
+- Seed dos 2 templates com os textos exatos dos PDFs (abertura, responsabilidades, termos, garantia, validade, despedida) e dos tipos: VERDEPLAN 1,50 / VERDEFLEX 1,94 / VERDEMAX 3,26 / PLANTIO DE GRAMA 4,22 (grama_liquida) e HIDROMANTA (mix_sementes).
+- Bucket privado `empresa-logos` para logo customizada.
+- Trigger para auto-criar `empresa_config` no primeiro login.
 
-### Ordem de execução
-1. Migração única (campos de combustível em `tipos_aplicacao`, `combustivel_equipamento_modo` + `pdf_url` em `orcamentos`).
-2. Criar bucket Storage + policies.
-3. Gerar ícones PNG (logo em fundo verde).
-4. Frontend: PWA manifest → wrapper de logo → CRUD tipos → toggle combustível + cálculo → PDF com logo → WhatsApp com upload+share.
-5. Testar via Playwright: instalação PWA (manifest válido), preview do PDF, fluxo de WhatsApp em viewport mobile.
+### 2. Design system
+- Tokens em `src/styles.css` (oklch) com a paleta: verde floresta `#1F3D2B`, musgo `#8FA382`, ocre `#C98B2E`, marrom-solo `#6B4A2F`, creme `#F7F5EF`, texto `#20241F`.
+- Fontes via `<link>` no `__root.tsx`: Space Grotesk (títulos), Inter (corpo), IBM Plex Mono (valores).
+- Container mobile-first, máx. 480px, responsivo.
 
-### Fora de escopo (confirmar se quiser)
-- Cadastro automático dos tipos "Talude até 45°" e "Talude acima de 45°": posso semear na migração, ou deixar o usuário adicionar pela nova tela do item 6. **Assumo: semear na migração** para já refletir a tabela do enunciado.
-- Service worker offline real: não incluído (ver item 2).
+### 3. Auth + shell
+- Rota pública `/auth` (login/cadastro).
+- Layout autenticado `_authenticated/` com bottom-nav (Início / Novo / Configurações).
+- Logo no header.
+
+### 4. Dashboard (`/`)
+- CTA grande "Novo orçamento".
+- Cards de KPI: orçamentos no mês, taxa de aprovação, ticket médio.
+- Lista dos últimos orçamentos com filtros (cliente, status, tipo).
+
+### 5. Wizard "Novo orçamento" (`/novo`)
+Etapas com barra de progresso, autosave de rascunho:
+- **a. Tipo de proposta** — 2 cards grandes.
+- **b. Cliente** — buscar/cadastrar; campo "Obra" só se `mix_sementes`.
+- **c. Itens** — múltiplas linhas, tipos filtrados pelo tipo de proposta, m² e custo/m² editáveis.
+- **d. Custos operacionais** — frete, mão de obra (diária × dias), alimentação, hospedagem, combustível equipamento, combustível veículo (km/L, R$/L, distância), outras despesas; se `mix_sementes`: mobilizações extras + valor.
+- **e. Preço** — sliders de margem e alíquota, painel ao vivo com todos os cálculos da planilha.
+- **f. Revisão** — preview fiel do PDF do tipo escolhido; botões Salvar / Gerar PDF / WhatsApp.
+
+### 6. Detalhe do orçamento (`/orcamentos/$id`)
+Reabrir, editar, mudar status, regenerar PDF, duplicar (mantém custos, troca cliente).
+
+### 7. Configurações (`/configuracoes`)
+- Dados da empresa + upload de logo.
+- Editor dos 2 templates (todos os textos, validade, despedida).
+- CRUD de tipos de aplicação (vinculados ao tipo de proposta).
+- Margem e alíquota padrão.
+
+### 8. Geração de PDF + WhatsApp
+- `@react-pdf/renderer` com 2 templates fiéis aos PDFs anexados (cabeçalho com dados da empresa/página/data/hora, abertura, cliente, tabela de itens, total em destaque, condição de pagamento, mobilização só mix, responsabilidades, termos, garantia, validade, assinatura).
+- Upload do PDF em bucket `propostas` → URL assinada.
+- Botão WhatsApp abre `https://wa.me/?text=...` com mensagem pré-formatada + link do PDF.
+
+## Detalhes técnicos
+
+**Cálculo (recalcula em tempo real, exatamente como a planilha):**
+```
+custo_insumo_total = Σ(qtd_m2 × custo_insumo_m2)
+total_m2           = Σ qtd_m2
+mao_obra_total     = diaria × dias
+alimentacao_total  = diaria × dias
+hospedagem_total   = diaria × qtd
+comb_veiculo_total = (distancia_km ÷ km_l) × r_l
+mob_extra_total    = mobilizacoes_extras × valor_mob   (só mix_sementes)
+custo_total        = soma de tudo acima + frete + comb_equipamento + outras
+custo_m2           = custo_total ÷ total_m2
+valor_m2           = custo_m2 × (1 + margem)
+faturamento_bruto  = valor_m2 × total_m2
+imposto            = faturamento_bruto × aliquota
+lucro_real         = (faturamento_bruto − custo_total) − imposto
+```
+
+**Stack:** React 19 + TanStack Start + Tailwind v4 + Lovable Cloud (Supabase) + `@react-pdf/renderer` + `zod` + `react-hook-form`.
+
+**Rotas:** `/auth` (pública); sob `_authenticated/`: `/` dashboard, `/novo`, `/orcamentos/$id`, `/clientes`, `/configuracoes`.
+
+**Segurança:** RLS em todas as tabelas por `user_id`; `user_roles` separado; buckets privados com URLs assinadas.
+
+**Textos dos templates:** extraídos verbatim dos 2 PDFs anexados no seed inicial — depois editáveis em Configurações.

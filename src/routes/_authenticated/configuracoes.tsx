@@ -153,165 +153,65 @@ function TiposForm() {
     queryKey: ["tipos_aplicacao_all"],
     queryFn: async () => (await supabase.from("tipos_aplicacao").select("*").order("proposta_tipo").order("nome")).data,
   });
-  const [novo, setNovo] = useState<Partial<TipoApp>>({
-    nome: "", descricao: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida",
-    litros_por_tanque: 6.5, preco_por_litro: 7.0, rendimento_medio_m2: 250,
-  });
+  const [novo, setNovo] = useState<Partial<TipoApp>>({ nome: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida" });
   const create = useMutation({
     mutationFn: async () => {
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase.from("tipos_aplicacao").insert({
         user_id: u.user!.id,
         nome: novo.nome!,
-        descricao: novo.descricao ?? null,
         custo_padrao_m2: novo.custo_padrao_m2 ?? 0,
         proposta_tipo: novo.proposta_tipo!,
-        litros_por_tanque: novo.litros_por_tanque ?? 6.5,
-        preco_por_litro: novo.preco_por_litro ?? 7.0,
-        rendimento_medio_m2: novo.rendimento_medio_m2 ?? 250,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      setNovo({ nome: "", descricao: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida", litros_por_tanque: 6.5, preco_por_litro: 7.0, rendimento_medio_m2: 250 });
+      setNovo({ nome: "", custo_padrao_m2: 0, proposta_tipo: "grama_liquida" });
       qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] });
       toast.success("Adicionado");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("tipos_aplicacao").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] }),
+  });
   return (
     <div className="mt-3 space-y-3">
-      <p className="text-xs text-muted-foreground">
-        Edite os preços por m² e parâmetros de combustível de cada tipo. Toque em <b>Salvar</b> para gravar.
-      </p>
       {(data ?? []).map((t) => (
-        <TipoCard key={t.id} tipo={t} />
+        <Card key={t.id} className="flex items-center justify-between p-3">
+          <div>
+            <p className="font-medium">{t.nome}</p>
+            <p className="text-xs text-muted-foreground">
+              {t.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix"} · R$ {Number(t.custo_padrao_m2).toFixed(2)}/m²
+            </p>
+          </div>
+          <button onClick={() => del.mutate(t.id)} className="text-destructive">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </Card>
       ))}
       <Card className="space-y-2 p-3">
         <p className="font-display text-sm font-semibold text-primary">Novo tipo</p>
-        <F label="Nome">
-          <Input placeholder="Ex.: VERDEPLAN" value={novo.nome ?? ""} onChange={(e) => setNovo((n) => ({ ...n, nome: e.target.value }))} />
-        </F>
-        <F label="Descrição (opcional)">
-          <Input placeholder="Detalhes" value={novo.descricao ?? ""} onChange={(e) => setNovo((n) => ({ ...n, descricao: e.target.value }))} />
-        </F>
+        <Input placeholder="Nome" value={novo.nome ?? ""} onChange={(e) => setNovo((n) => ({ ...n, nome: e.target.value }))} />
         <div className="grid grid-cols-2 gap-2">
-          <F label="Custo insumo (R$/m²)">
-            <NumericInput value={Number(novo.custo_padrao_m2 ?? 0)} onChange={(v) => setNovo((n) => ({ ...n, custo_padrao_m2: v }))} />
-          </F>
-          <F label="Categoria">
-            <Select value={novo.proposta_tipo} onValueChange={(v) => setNovo((n) => ({ ...n, proposta_tipo: v as "grama_liquida" | "mix_sementes" }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="grama_liquida">Grama Líquida</SelectItem>
-                <SelectItem value="mix_sementes">Mix de Sementes</SelectItem>
-              </SelectContent>
-            </Select>
-          </F>
-        </div>
-        <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Combustível do equipamento</p>
-        <div className="grid grid-cols-3 gap-2">
-          <F label="L/tanque">
-            <NumericInput value={Number(novo.litros_por_tanque ?? 6.5)} onChange={(v) => setNovo((n) => ({ ...n, litros_por_tanque: v }))} />
-          </F>
-          <F label="R$/L">
-            <NumericInput value={Number(novo.preco_por_litro ?? 7)} onChange={(v) => setNovo((n) => ({ ...n, preco_por_litro: v }))} />
-          </F>
-          <F label="Rend. m²">
-            <NumericInput value={Number(novo.rendimento_medio_m2 ?? 250)} onChange={(v) => setNovo((n) => ({ ...n, rendimento_medio_m2: v }))} />
-          </F>
+          <NumericInput value={Number(novo.custo_padrao_m2 ?? 0)} onChange={(v) => setNovo((n) => ({ ...n, custo_padrao_m2: v }))} />
+          <Select value={novo.proposta_tipo} onValueChange={(v) => setNovo((n) => ({ ...n, proposta_tipo: v as "grama_liquida" | "mix_sementes" }))}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="grama_liquida">Grama Líquida</SelectItem>
+              <SelectItem value="mix_sementes">Mix de Sementes</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Button onClick={() => create.mutate()} disabled={!novo.nome || create.isPending} className="w-full">
           <Plus className="mr-1 h-4 w-4" /> Adicionar
         </Button>
       </Card>
     </div>
-  );
-}
-
-function TipoCard({ tipo }: { tipo: TipoApp }) {
-  const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<TipoApp>(tipo);
-  useEffect(() => { setForm(tipo); }, [tipo]);
-  const save = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("tipos_aplicacao").update({
-        nome: form.nome,
-        descricao: form.descricao,
-        custo_padrao_m2: form.custo_padrao_m2,
-        litros_por_tanque: form.litros_por_tanque,
-        preco_por_litro: form.preco_por_litro,
-        rendimento_medio_m2: form.rendimento_medio_m2,
-      }).eq("id", tipo.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] });
-      qc.invalidateQueries({ queryKey: ["tipos_aplicacao"] });
-      toast.success("Salvo");
-      setOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const del = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from("tipos_aplicacao").delete().eq("id", tipo.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] });
-      toast.success("Removido");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const custoCombM2 = (Number(form.litros_por_tanque) * Number(form.preco_por_litro)) / (Number(form.rendimento_medio_m2) || 1);
-  return (
-    <Card className="p-3">
-      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-left">
-        <div>
-          <p className="font-medium">{tipo.nome}</p>
-          <p className="text-xs text-muted-foreground">
-            {tipo.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix"} · R$ {Number(tipo.custo_padrao_m2).toFixed(2)}/m²
-          </p>
-        </div>
-        <span className="text-xs font-semibold text-primary">{open ? "Fechar" : "Editar"}</span>
-      </button>
-      {open && (
-        <div className="mt-3 space-y-2 border-t pt-3">
-          <F label="Nome">
-            <Input value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
-          </F>
-          <F label="Descrição">
-            <Input value={form.descricao ?? ""} onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))} />
-          </F>
-          <F label="Custo insumo (R$/m²)">
-            <NumericInput value={Number(form.custo_padrao_m2)} onChange={(v) => setForm((f) => ({ ...f, custo_padrao_m2: v }))} />
-          </F>
-          <p className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Combustível do equipamento</p>
-          <div className="grid grid-cols-3 gap-2">
-            <F label="L/tanque">
-              <NumericInput value={Number(form.litros_por_tanque)} onChange={(v) => setForm((f) => ({ ...f, litros_por_tanque: v }))} />
-            </F>
-            <F label="R$/L">
-              <NumericInput value={Number(form.preco_por_litro)} onChange={(v) => setForm((f) => ({ ...f, preco_por_litro: v }))} />
-            </F>
-            <F label="Rend. m²">
-              <NumericInput value={Number(form.rendimento_medio_m2)} onChange={(v) => setForm((f) => ({ ...f, rendimento_medio_m2: v }))} />
-            </F>
-          </div>
-          <p className="rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-            Custo combustível estimado: <b className="font-mono text-primary">R$ {custoCombM2.toFixed(3)}/m²</b>
-          </p>
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button variant="outline" className="text-destructive" onClick={() => { if (confirm(`Remover "${tipo.nome}"?`)) del.mutate(); }} disabled={del.isPending}>
-              <Trash2 className="mr-1 h-4 w-4" /> Remover
-            </Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>Salvar</Button>
-          </div>
-        </div>
-      )}
-    </Card>
   );
 }
 
