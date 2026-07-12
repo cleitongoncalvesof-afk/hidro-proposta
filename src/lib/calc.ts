@@ -1,5 +1,12 @@
+export type TipoAplicacaoRef = {
+  id: string;
+  litros_por_tanque: number;
+  preco_por_litro: number;
+  rendimento_medio_m2: number;
+};
+
 export type OrcamentoInput = {
-  itens: { quantidade_m2: number; custo_insumo_m2: number }[];
+  itens: { quantidade_m2: number; custo_insumo_m2: number; tipo_aplicacao_id?: string | null }[];
   frete: number;
   mao_obra_diaria: number;
   mao_obra_dias: number;
@@ -8,6 +15,8 @@ export type OrcamentoInput = {
   hospedagem_diaria: number;
   hospedagem_qtd: number;
   combustivel_equipamento: number;
+  combustivel_equipamento_modo?: "manual" | "auto_m2";
+  tipos_ref?: TipoAplicacaoRef[];
   combustivel_km_l: number;
   combustivel_r_l: number;
   combustivel_distancia_km: number;
