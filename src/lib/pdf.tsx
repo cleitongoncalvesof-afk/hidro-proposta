@@ -3,15 +3,20 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
 import type { PropostaData } from "@/components/PropostaPreview";
 import { fmtBRL, fmtDate, fmtNum, padProposta } from "@/lib/format";
 
+const LOGO_URL = typeof window !== "undefined" ? `${window.location.origin}/icon-192.png` : "/icon-192.png";
+
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 9, fontFamily: "Helvetica", color: "#20241F", lineHeight: 1.35 },
-  headerRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#8FA382", paddingBottom: 6 },
+  headerRow: { flexDirection: "row", borderBottomWidth: 1, borderColor: "#8FA382", paddingBottom: 6, alignItems: "flex-start", gap: 8 },
+  logoBox: { width: 54, height: 54, backgroundColor: "#1F3D2B", padding: 3, borderRadius: 4, alignItems: "center", justifyContent: "center" },
+  logoImg: { width: 48, height: 48 },
   headerCenter: { flex: 1 },
   headerRight: { width: 90, textAlign: "right", fontSize: 8 },
   bold: { fontFamily: "Helvetica-Bold" },
@@ -52,6 +57,9 @@ function PropostaPDF({ data }: { data: PropostaData }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
+          <View style={styles.logoBox}>
+            <Image src={LOGO_URL} style={styles.logoImg} />
+          </View>
           <View style={styles.headerCenter}>
             <Text style={styles.bold}>
               4G SERVIÇOS LTDA — RAZÃO SOCIAL: {empresa.razao_social}
