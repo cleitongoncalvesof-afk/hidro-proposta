@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { calcular } from "@/lib/calc";
 import { fmtBRL, fmtDate, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
-import { baixarPropostaPDF } from "@/lib/pdf";
+import { baixarPropostaPDF, compartilharPropostaWhatsapp } from "@/lib/pdf";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Download, MessageCircle } from "lucide-react";
 
@@ -136,14 +137,28 @@ function OrcamentoDetalhe() {
     criado_em: o.created_at,
   };
 
+  const [sharing, setSharing] = useState(false);
   async function enviarWhatsapp() {
-    const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
-    const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
-    const msg = `Olá ${o.cliente?.nome ?? ""}, segue a proposta comercial nº ${padProposta(o.numero)} — ${tipoNome} — Valor total: ${fmtBRL(calc.faturamento_bruto)}. Enviarei o PDF na sequência.`;
-    const url = tel
-      ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank");
+    if (!o.cliente) return;
+    setSharing(true);
+    try {
+      const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
+      const msg = `Olá ${o.cliente?.nome ?? ""}, segue a proposta comercial nº ${padProposta(o.numero)} — ${tipoNome} — Valor total: ${fmtBRL(calc.faturamento_bruto)}.`;
+      const { pdfUrl, via } = await compartilharPropostaWhatsapp(propostaData, {
+        telefone: o.cliente?.telefone,
+        mensagem: msg,
+        orcamentoId: o.id,
+      });
+      if (pdfUrl !== o.pdf_url) {
+        await supabase.from("orcamentos").update({ pdf_url: pdfUrl }).eq("id", o.id);
+        qc.invalidateQueries({ queryKey: ["orcamento", id] });
+      }
+      toast.success(via === "share_file" ? "PDF compartilhado" : "WhatsApp aberto com link do PDF");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao compartilhar");
+    } finally {
+      setSharing(false);
+    }
   }
 
   return (
@@ -174,8 +189,8 @@ function OrcamentoDetalhe() {
         <Button onClick={() => baixarPropostaPDF(propostaData)}>
           <Download className="mr-1 h-4 w-4" /> Baixar PDF
         </Button>
-        <Button variant="secondary" onClick={enviarWhatsapp}>
-          <MessageCircle className="mr-1 h-4 w-4" /> WhatsApp
+        <Button variant="secondary" onClick={enviarWhatsapp} disabled={sharing}>
+          <MessageCircle className="mr-1 h-4 w-4" /> {sharing ? "Enviando..." : "WhatsApp"}
         </Button>
         <Button variant="outline" onClick={() => duplicar.mutate()} disabled={duplicar.isPending}>
           <Copy className="mr-1 h-4 w-4" /> Duplicar

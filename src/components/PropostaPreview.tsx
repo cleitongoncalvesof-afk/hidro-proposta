@@ -66,7 +66,9 @@ export function PropostaPreview({ data }: { data: PropostaData }) {
     <div className="rounded-lg border bg-white p-4 text-[10px] leading-snug text-black shadow-sm">
       {/* Cabeçalho */}
       <div className="flex items-start gap-3 border-b pb-3">
-        <img src={logoUrl} alt="" className="h-14 w-14 shrink-0" />
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-[#1F3D2B] p-1">
+          <img src={logoUrl} alt="" className="h-full w-full object-contain" />
+        </span>
         <div className="min-w-0 flex-1">
           <p className="font-bold">4G SERVIÇOS LTDA — RAZÃO SOCIAL: {empresa.razao_social}</p>
           <p>{empresa.endereco}</p>

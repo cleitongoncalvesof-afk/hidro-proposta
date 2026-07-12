@@ -1,5 +1,12 @@
+export type TipoAplicacaoRef = {
+  id: string;
+  litros_por_tanque: number;
+  preco_por_litro: number;
+  rendimento_medio_m2: number;
+};
+
 export type OrcamentoInput = {
-  itens: { quantidade_m2: number; custo_insumo_m2: number }[];
+  itens: { quantidade_m2: number; custo_insumo_m2: number; tipo_aplicacao_id?: string | null }[];
   frete: number;
   mao_obra_diaria: number;
   mao_obra_dias: number;
@@ -8,6 +15,8 @@ export type OrcamentoInput = {
   hospedagem_diaria: number;
   hospedagem_qtd: number;
   combustivel_equipamento: number;
+  combustivel_equipamento_modo?: "manual" | "auto_m2";
+  tipos_ref?: TipoAplicacaoRef[];
   combustivel_km_l: number;
   combustivel_r_l: number;
   combustivel_distancia_km: number;
@@ -25,6 +34,7 @@ export type OrcamentoCalc = {
   alimentacao_total: number;
   hospedagem_total: number;
   combustivel_veiculo_total: number;
+  combustivel_equipamento_efetivo: number;
   mobilizacao_extra_total: number;
   custo_total: number;
   custo_por_m2: number;
@@ -51,13 +61,22 @@ export function calcular(o: OrcamentoInput): OrcamentoCalc {
       : 0;
   const mobilizacao_extra_total =
     n(o.mobilizacoes_extras) * n(o.valor_mobilizacao_adicional);
+  const combustivel_equipamento_efetivo =
+    o.combustivel_equipamento_modo === "auto_m2"
+      ? o.itens.reduce((acc, it) => {
+          const t = (o.tipos_ref ?? []).find((x) => x.id === it.tipo_aplicacao_id);
+          if (!t || !n(t.rendimento_medio_m2)) return acc;
+          const custo_m2 = (n(t.litros_por_tanque) * n(t.preco_por_litro)) / n(t.rendimento_medio_m2);
+          return acc + custo_m2 * n(it.quantidade_m2);
+        }, 0)
+      : n(o.combustivel_equipamento);
   const custo_total =
     custo_insumo_total +
     n(o.frete) +
     mao_de_obra_total +
     alimentacao_total +
     hospedagem_total +
-    n(o.combustivel_equipamento) +
+    combustivel_equipamento_efetivo +
     combustivel_veiculo_total +
     n(o.outras_despesas) +
     mobilizacao_extra_total;
@@ -74,6 +93,7 @@ export function calcular(o: OrcamentoInput): OrcamentoCalc {
     alimentacao_total,
     hospedagem_total,
     combustivel_veiculo_total,
+    combustivel_equipamento_efetivo,
     mobilizacao_extra_total,
     custo_total,
     custo_por_m2,

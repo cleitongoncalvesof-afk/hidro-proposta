@@ -36,6 +36,7 @@ type FormState = {
   hospedagem_diaria: number;
   hospedagem_qtd: number;
   combustivel_equipamento: number;
+  combustivel_equipamento_modo: "manual" | "auto_m2";
   combustivel_km_l: number;
   combustivel_r_l: number;
   combustivel_distancia_km: number;
@@ -60,6 +61,7 @@ const emptyState: FormState = {
   hospedagem_diaria: 0,
   hospedagem_qtd: 0,
   combustivel_equipamento: 0,
+  combustivel_equipamento_modo: "manual",
   combustivel_km_l: 0,
   combustivel_r_l: 0,
   combustivel_distancia_km: 0,
@@ -143,7 +145,10 @@ function NovoOrcamento() {
   });
 
   const template = templates.data?.find((t) => t.tipo === state.proposta_tipo);
-  const calc = useMemo(() => calcular(state), [state]);
+  const calc = useMemo(
+    () => calcular({ ...state, tipos_ref: (tipos.data ?? []).map((t) => ({ id: t.id, litros_por_tanque: Number(t.litros_por_tanque), preco_por_litro: Number(t.preco_por_litro), rendimento_medio_m2: Number(t.rendimento_medio_m2) })) }),
+    [state, tipos.data],
+  );
 
   // Set defaults from template when tipo picked
   useEffect(() => {
@@ -212,7 +217,8 @@ function NovoOrcamento() {
           alimentacao_dias: state.alimentacao_dias,
           hospedagem_diaria: state.hospedagem_diaria,
           hospedagem_qtd: state.hospedagem_qtd,
-          combustivel_equipamento: state.combustivel_equipamento,
+          combustivel_equipamento: calc.combustivel_equipamento_efetivo,
+          combustivel_equipamento_modo: state.combustivel_equipamento_modo,
           combustivel_km_l: state.combustivel_km_l,
           combustivel_r_l: state.combustivel_r_l,
           combustivel_distancia_km: state.combustivel_distancia_km,
@@ -314,7 +320,7 @@ function NovoOrcamento() {
         />
       )}
 
-      {step === 3 && <CustosStep state={state} setState={setState} isMix={state.proposta_tipo === "mix_sementes"} />}
+      {step === 3 && <CustosStep state={state} setState={setState} isMix={state.proposta_tipo === "mix_sementes"} tipos={tipos.data ?? []} calc={calc} />}
 
       {step === 4 && <PrecoStep state={state} setState={setState} calc={calc} />}
 
@@ -652,12 +658,17 @@ function CustosStep({
   state,
   setState,
   isMix,
+  tipos,
+  calc,
 }: {
   state: FormState;
   setState: React.Dispatch<React.SetStateAction<FormState>>;
   isMix: boolean;
+  tipos: TipoAplicacao[];
+  calc: ReturnType<typeof calcular>;
 }) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setState((s) => ({ ...s, [k]: v }));
+  const isAuto = state.combustivel_equipamento_modo === "auto_m2";
   return (
     <div className="space-y-3">
       <Section title="Frete">
@@ -700,9 +711,67 @@ function CustosStep({
       </Section>
 
       <Section title="Combustível do equipamento">
-        <Field label="Valor (R$)">
-          <NumericInput value={state.combustivel_equipamento} onChange={(v) => set("combustivel_equipamento", v)} />
-        </Field>
+        <div className="mb-3 grid grid-cols-2 gap-1 rounded-md bg-muted p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => set("combustivel_equipamento_modo", "manual")}
+            className={`rounded py-1.5 font-medium ${!isAuto ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+          >
+            Valor manual
+          </button>
+          <button
+            type="button"
+            onClick={() => set("combustivel_equipamento_modo", "auto_m2")}
+            className={`rounded py-1.5 font-medium ${isAuto ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}
+          >
+            Calcular por m²
+          </button>
+        </div>
+        {!isAuto && (
+          <Field label="Valor (R$)">
+            <NumericInput value={state.combustivel_equipamento} onChange={(v) => set("combustivel_equipamento", v)} />
+          </Field>
+        )}
+        {isAuto && (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Fórmula por m²: (litros/tanque × R$/L) ÷ rendimento (m²). Ajuste os valores por tipo em <b>Configurações → Tipos</b>.
+            </p>
+            <div className="space-y-1 rounded-md border bg-muted/40 p-2 text-xs">
+              {state.itens.length === 0 && (
+                <p className="text-muted-foreground">Adicione áreas na etapa anterior para ver o cálculo.</p>
+              )}
+              {state.itens.map((it, i) => {
+                const t = tipos.find((x) => x.id === it.tipo_aplicacao_id);
+                if (!t) {
+                  return (
+                    <div key={i} className="flex justify-between text-muted-foreground">
+                      <span>Área {i + 1}: sem tipo</span>
+                      <span className="font-mono">R$ 0,00</span>
+                    </div>
+                  );
+                }
+                const custoM2 = (Number(t.litros_por_tanque) * Number(t.preco_por_litro)) / (Number(t.rendimento_medio_m2) || 1);
+                const subtotal = custoM2 * Number(it.quantidade_m2);
+                return (
+                  <div key={i} className="flex flex-col border-b border-border/50 pb-1 last:border-b-0 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{t.nome}</span>
+                      <span className="font-mono">{fmtBRL(subtotal)}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {Number(it.quantidade_m2).toLocaleString("pt-BR")} m² × {fmtBRL(custoM2)}/m²
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between border-t pt-1 font-semibold text-primary">
+                <span>Total combustível</span>
+                <span className="font-mono">{fmtBRL(calc.combustivel_equipamento_efetivo)}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </Section>
 
       <Section title="Combustível do veículo">
