@@ -145,7 +145,10 @@ function NovoOrcamento() {
   });
 
   const template = templates.data?.find((t) => t.tipo === state.proposta_tipo);
-  const calc = useMemo(() => calcular(state), [state]);
+  const calc = useMemo(
+    () => calcular({ ...state, tipos_ref: (tipos.data ?? []).map((t) => ({ id: t.id, litros_por_tanque: Number(t.litros_por_tanque), preco_por_litro: Number(t.preco_por_litro), rendimento_medio_m2: Number(t.rendimento_medio_m2) })) }),
+    [state, tipos.data],
+  );
 
   // Set defaults from template when tipo picked
   useEffect(() => {
@@ -214,7 +217,8 @@ function NovoOrcamento() {
           alimentacao_dias: state.alimentacao_dias,
           hospedagem_diaria: state.hospedagem_diaria,
           hospedagem_qtd: state.hospedagem_qtd,
-          combustivel_equipamento: state.combustivel_equipamento,
+          combustivel_equipamento: calc.combustivel_equipamento_efetivo,
+          combustivel_equipamento_modo: state.combustivel_equipamento_modo,
           combustivel_km_l: state.combustivel_km_l,
           combustivel_r_l: state.combustivel_r_l,
           combustivel_distancia_km: state.combustivel_distancia_km,
