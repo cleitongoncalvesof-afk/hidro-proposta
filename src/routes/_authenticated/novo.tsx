@@ -36,6 +36,7 @@ type FormState = {
   hospedagem_diaria: number;
   hospedagem_qtd: number;
   combustivel_equipamento: number;
+  combustivel_equipamento_modo: "manual" | "auto_m2";
   combustivel_km_l: number;
   combustivel_r_l: number;
   combustivel_distancia_km: number;
@@ -60,6 +61,7 @@ const emptyState: FormState = {
   hospedagem_diaria: 0,
   hospedagem_qtd: 0,
   combustivel_equipamento: 0,
+  combustivel_equipamento_modo: "manual",
   combustivel_km_l: 0,
   combustivel_r_l: 0,
   combustivel_distancia_km: 0,
