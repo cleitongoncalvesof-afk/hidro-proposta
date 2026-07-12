@@ -173,14 +173,78 @@ export async function gerarPropostaPDF(data: PropostaData): Promise<Blob> {
   return await pdf(<PropostaPDF data={data} />).toBlob();
 }
 
+export function propostaFileName(data: PropostaData) {
+  return `Proposta-${padProposta(data.numero)}-${data.cliente.nome.replace(/\s+/g, "_")}.pdf`;
+}
+
 export async function baixarPropostaPDF(data: PropostaData) {
   const blob = await gerarPropostaPDF(data);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Proposta-${padProposta(data.numero)}-${data.cliente.nome.replace(/\s+/g, "_")}.pdf`;
+  a.download = propostaFileName(data);
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+
+import { supabase } from "@/integrations/supabase/client";
+
+/** Faz upload do PDF no bucket propostas-pdf e devolve URL assinada válida por 7 dias. */
+export async function uploadPropostaPDF(
+  data: PropostaData,
+  opts: { orcamentoId?: string } = {},
+): Promise<{ blob: Blob; signedUrl: string; path: string; file: File }> {
+  const blob = await gerarPropostaPDF(data);
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) throw new Error("Sem sessão");
+  const userId = userData.user.id;
+  const filename = propostaFileName(data);
+  const path = `${userId}/${opts.orcamentoId ?? padProposta(data.numero)}-${Date.now()}.pdf`;
+  const { error: upErr } = await supabase.storage
+    .from("propostas-pdf")
+    .upload(path, blob, { contentType: "application/pdf", upsert: true });
+  if (upErr) throw upErr;
+  const { data: signed, error: sErr } = await supabase.storage
+    .from("propostas-pdf")
+    .createSignedUrl(path, 60 * 60 * 24 * 7); // 7 dias
+  if (sErr) throw sErr;
+  const file = new File([blob], filename, { type: "application/pdf" });
+  return { blob, signedUrl: signed.signedUrl, path, file };
+}
+
+/**
+ * Compartilha proposta via WhatsApp:
+ * - Se o dispositivo suportar Web Share API com arquivos, envia o PDF direto.
+ * - Caso contrário, abre wa.me com a mensagem + link do PDF hospedado.
+ */
+export async function compartilharPropostaWhatsapp(
+  data: PropostaData,
+  opts: { telefone?: string | null; mensagem: string; orcamentoId?: string },
+): Promise<{ pdfUrl: string; via: "share_file" | "wa_link" }> {
+  const { file, signedUrl } = await uploadPropostaPDF(data, { orcamentoId: opts.orcamentoId });
+  const nav = typeof navigator !== "undefined" ? navigator : undefined;
+  const canShareFile =
+    !!nav && "canShare" in nav && typeof nav.canShare === "function" && nav.canShare({ files: [file] });
+  if (canShareFile && "share" in nav! && typeof nav.share === "function") {
+    try {
+      await nav.share({
+        title: file.name,
+        text: opts.mensagem,
+        files: [file],
+      });
+      return { pdfUrl: signedUrl, via: "share_file" };
+    } catch (e) {
+      // usuário cancelou ou não suporta files — cai no fallback
+    }
+  }
+  const tel = (opts.telefone ?? "").replace(/\D/g, "");
+  const texto = `${opts.mensagem}\n\nPDF da proposta: ${signedUrl}`;
+  const url = tel
+    ? `https://wa.me/55${tel}?text=${encodeURIComponent(texto)}`
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+  window.open(url, "_blank");
+  return { pdfUrl: signedUrl, via: "wa_link" };
+}
+
