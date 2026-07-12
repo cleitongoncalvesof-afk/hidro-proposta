@@ -9,7 +9,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-30 border-b bg-primary text-primary-foreground">
         <div className="mx-auto flex h-14 max-w-[480px] items-center gap-3 px-4">
-          <img src={logoUrl} alt="4G AGROVERDE" className="h-8 w-8 rounded-sm bg-primary-foreground/90 p-0.5" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#1F3D2B] p-1 ring-1 ring-primary-foreground/20">
+            <img src={logoUrl} alt="4G AGROVERDE" className="h-full w-full object-contain" />
+          </span>
           <div className="leading-tight">
             <p className="font-display text-sm font-semibold">4G AGROVERDE</p>
             <p className="text-[10px] opacity-80">Orçamentos & Propostas</p>
