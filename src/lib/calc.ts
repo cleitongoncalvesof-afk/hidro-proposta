@@ -34,6 +34,7 @@ export type OrcamentoCalc = {
   alimentacao_total: number;
   hospedagem_total: number;
   combustivel_veiculo_total: number;
+  combustivel_equipamento_efetivo: number;
   mobilizacao_extra_total: number;
   custo_total: number;
   custo_por_m2: number;
@@ -92,6 +93,7 @@ export function calcular(o: OrcamentoInput): OrcamentoCalc {
     alimentacao_total,
     hospedagem_total,
     combustivel_veiculo_total,
+    combustivel_equipamento_efetivo,
     mobilizacao_extra_total,
     custo_total,
     custo_por_m2,
