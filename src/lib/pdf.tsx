@@ -9,6 +9,7 @@ import {
 } from "@react-pdf/renderer";
 import type { PropostaData } from "@/components/PropostaPreview";
 import { fmtBRL, fmtDate, fmtNum, padProposta } from "@/lib/format";
+import { supabase } from "@/integrations/supabase/client";
 
 const LOGO_URL = typeof window !== "undefined" ? `${window.location.origin}/icon-192.png` : "/icon-192.png";
 
@@ -188,8 +189,6 @@ export async function baixarPropostaPDF(data: PropostaData) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
-
-import { supabase } from "@/integrations/supabase/client";
 
 /** Faz upload do PDF no bucket propostas-pdf e devolve URL assinada válida por 7 dias. */
 export async function uploadPropostaPDF(
