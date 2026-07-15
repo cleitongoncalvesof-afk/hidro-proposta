@@ -350,7 +350,7 @@ function NovoOrcamento() {
         />
       )}
 
-      {step === 3 && <CustosStep state={state} setState={setState} isMix={state.proposta_tipo === "mix_sementes"} />}
+      {step === 3 && <CustosStep state={state} setState={setState} isMix={state.proposta_tipo === "mix_sementes"} tipos={tipos.data ?? []} combustivelAutoDetalhe={combustivelAutoDetalhe} />}
 
       {step === 4 && <PrecoStep state={state} setState={setState} calc={calc} />}
 
