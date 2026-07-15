@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { calcular } from "@/lib/calc";
 import { fmtBRL, fmtDate, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
-import { baixarPropostaPDF } from "@/lib/pdf";
+import { baixarPropostaPDF, gerarPropostaPDF, nomeArquivoProposta } from "@/lib/pdf";
 import { toast } from "sonner";
 import { Copy, Download, MessageCircle } from "lucide-react";
+import { useState } from "react";
+
 
 export const Route = createFileRoute("/_authenticated/orcamentos/$id")({
   component: OrcamentoDetalhe,
