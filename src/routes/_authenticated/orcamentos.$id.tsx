@@ -138,15 +138,72 @@ function OrcamentoDetalhe() {
     criado_em: o.created_at,
   };
 
+  const [sharing, setSharing] = useState(false);
+
   async function enviarWhatsapp() {
-    const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
-    const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
-    const msg = `Olá ${o.cliente?.nome ?? ""}, segue a proposta comercial nº ${padProposta(o.numero)} — ${tipoNome} — Valor total: ${fmtBRL(calc.faturamento_bruto)}. Enviarei o PDF na sequência.`;
-    const url = tel
-      ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank");
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
+      const totalTxt = fmtBRL(calc.faturamento_bruto);
+      const numeroTxt = padProposta(o.numero);
+      const nomeCli = o.cliente?.nome ?? "";
+      const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
+
+      const blob = await gerarPropostaPDF(propostaData);
+      const fileName = nomeArquivoProposta(propostaData);
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      // 1) Tenta Web Share API com arquivo (Android Chrome, iOS Safari 16.4+)
+      const nav = navigator as Navigator & {
+        canShare?: (data: { files: File[] }) => boolean;
+        share?: (data: { files?: File[]; text?: string; title?: string }) => Promise<void>;
+      };
+      if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({
+            files: [file],
+            title: `Proposta ${numeroTxt}`,
+            text: `Olá ${nomeCli}, segue a proposta comercial nº ${numeroTxt} — ${tipoNome} — Valor total: ${totalTxt}.`,
+          });
+          setSharing(false);
+          return;
+        } catch (err) {
+          if ((err as DOMException)?.name === "AbortError") {
+            setSharing(false);
+            return;
+          }
+          // cai no fallback abaixo
+        }
+      }
+
+      // 2) Fallback: upload no Storage → signed URL → wa.me com o link
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData.user!.id;
+      const path = `${user_id}/${numeroTxt}-${Date.now()}.pdf`;
+      const up = await supabase.storage
+        .from("propostas-pdf")
+        .upload(path, blob, { contentType: "application/pdf", upsert: true });
+      if (up.error) throw up.error;
+      const signed = await supabase.storage
+        .from("propostas-pdf")
+        .createSignedUrl(path, 60 * 60 * 24 * 30); // 30 dias
+      if (signed.error || !signed.data?.signedUrl) throw signed.error ?? new Error("Sem URL");
+      const link = signed.data.signedUrl;
+      await supabase.from("orcamentos").update({ pdf_url: link }).eq("id", id);
+
+      const msg = `Olá ${nomeCli}, segue a proposta comercial nº ${numeroTxt} — ${tipoNome} — Valor total: ${totalTxt}.\n\nBaixe o PDF: ${link}`;
+      const url = tel
+        ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(url, "_blank");
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao compartilhar");
+    } finally {
+      setSharing(false);
+    }
   }
+
 
   return (
     <div className="space-y-4">
