@@ -65,8 +65,10 @@ function OrcamentoDetalhe() {
       const { data: userData } = await supabase.auth.getUser();
       const user_id = userData.user!.id;
       const { data: numData } = await supabase.rpc("next_orcamento_numero", { p_user_id: user_id });
-      const { id: _id, created_at, updated_at, numero, ...rest } = q.data;
+      const { id: _id, created_at, updated_at, numero, pdf_url, ...rest } = q.data;
+      void pdf_url;
       const { itens, cliente, ...restNoRel } = rest as typeof rest & { itens: unknown; cliente: unknown };
+
       const { data: novo, error } = await supabase
         .from("orcamentos")
         .insert({ ...restNoRel, numero: numData as number, status: "rascunho" })
