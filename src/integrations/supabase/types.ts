@@ -192,6 +192,7 @@ export type Database = {
           combustivel_equipamento: number
           combustivel_equipamento_modo: string
           combustivel_km_l: number
+          combustivel_modo: string
           combustivel_r_l: number
           condicoes_pagamento_customizadas: string | null
           created_at: string
@@ -222,6 +223,7 @@ export type Database = {
           combustivel_equipamento?: number
           combustivel_equipamento_modo?: string
           combustivel_km_l?: number
+          combustivel_modo?: string
           combustivel_r_l?: number
           condicoes_pagamento_customizadas?: string | null
           created_at?: string
@@ -252,6 +254,7 @@ export type Database = {
           combustivel_equipamento?: number
           combustivel_equipamento_modo?: string
           combustivel_km_l?: number
+          combustivel_modo?: string
           combustivel_r_l?: number
           condicoes_pagamento_customizadas?: string | null
           created_at?: string
