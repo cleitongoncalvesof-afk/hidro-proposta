@@ -35,6 +35,7 @@ type FormState = {
   alimentacao_dias: number;
   hospedagem_diaria: number;
   hospedagem_qtd: number;
+  combustivel_modo: "manual" | "auto_m2";
   combustivel_equipamento: number;
   combustivel_km_l: number;
   combustivel_r_l: number;
@@ -59,6 +60,7 @@ const emptyState: FormState = {
   alimentacao_dias: 0,
   hospedagem_diaria: 0,
   hospedagem_qtd: 0,
+  combustivel_modo: "manual",
   combustivel_equipamento: 0,
   combustivel_km_l: 0,
   combustivel_r_l: 0,
@@ -69,6 +71,7 @@ const emptyState: FormState = {
   margem: 0.7,
   aliquota: 0.12,
 };
+
 
 const DRAFT_KEY = "4g_novo_orcamento_draft";
 
