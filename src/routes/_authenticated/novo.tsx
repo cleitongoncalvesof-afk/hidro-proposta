@@ -246,13 +246,15 @@ function NovoOrcamento() {
           alimentacao_dias: state.alimentacao_dias,
           hospedagem_diaria: state.hospedagem_diaria,
           hospedagem_qtd: state.hospedagem_qtd,
-          combustivel_equipamento: state.combustivel_equipamento,
+          combustivel_modo: state.combustivel_modo,
+          combustivel_equipamento: effectiveState.combustivel_equipamento,
           combustivel_km_l: state.combustivel_km_l,
           combustivel_r_l: state.combustivel_r_l,
           combustivel_distancia_km: state.combustivel_distancia_km,
           outras_despesas: state.outras_despesas,
           margem: state.margem,
           aliquota: state.aliquota,
+
         })
         .select()
         .single();
