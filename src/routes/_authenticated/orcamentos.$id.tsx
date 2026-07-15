@@ -233,9 +233,10 @@ function OrcamentoDetalhe() {
         <Button onClick={() => baixarPropostaPDF(propostaData)}>
           <Download className="mr-1 h-4 w-4" /> Baixar PDF
         </Button>
-        <Button variant="secondary" onClick={enviarWhatsapp}>
-          <MessageCircle className="mr-1 h-4 w-4" /> WhatsApp
+        <Button variant="secondary" onClick={enviarWhatsapp} disabled={sharing}>
+          <MessageCircle className="mr-1 h-4 w-4" /> {sharing ? "Preparando..." : "WhatsApp"}
         </Button>
+
         <Button variant="outline" onClick={() => duplicar.mutate()} disabled={duplicar.isPending}>
           <Copy className="mr-1 h-4 w-4" /> Duplicar
         </Button>
