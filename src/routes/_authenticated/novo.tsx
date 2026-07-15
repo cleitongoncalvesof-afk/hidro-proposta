@@ -688,12 +688,17 @@ function CustosStep({
   state,
   setState,
   isMix,
+  tipos,
+  combustivelAutoDetalhe,
 }: {
   state: FormState;
   setState: React.Dispatch<React.SetStateAction<FormState>>;
   isMix: boolean;
+  tipos: TipoAplicacao[];
+  combustivelAutoDetalhe: { linhas: { tipo: string; m2: number; custoM2: number; subtotal: number }[]; total: number } | null;
 }) {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) => setState((s) => ({ ...s, [k]: v }));
+  const modo = state.combustivel_modo;
   return (
     <div className="space-y-3">
       <Section title="Frete">
@@ -736,9 +741,57 @@ function CustosStep({
       </Section>
 
       <Section title="Combustível do equipamento">
-        <Field label="Valor (R$)">
-          <NumericInput value={state.combustivel_equipamento} onChange={(v) => set("combustivel_equipamento", v)} />
-        </Field>
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={modo === "auto_m2" ? "default" : "outline"}
+            onClick={() => set("combustivel_modo", "auto_m2")}
+            className="h-9"
+          >
+            Calcular por m²
+          </Button>
+          <Button
+            type="button"
+            variant={modo === "manual" ? "default" : "outline"}
+            onClick={() => set("combustivel_modo", "manual")}
+            className="h-9"
+          >
+            Valor manual
+          </Button>
+        </div>
+        {modo === "manual" ? (
+          <Field label="Valor (R$)">
+            <NumericInput value={state.combustivel_equipamento} onChange={(v) => set("combustivel_equipamento", v)} />
+          </Field>
+        ) : (
+          <div className="space-y-2">
+            {combustivelAutoDetalhe && combustivelAutoDetalhe.linhas.length > 0 ? (
+              <>
+                <div className="space-y-1 rounded-md bg-muted/40 p-2 text-xs">
+                  {combustivelAutoDetalhe.linhas.map((l, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {l.tipo} · {l.m2.toLocaleString("pt-BR")} m² × {fmtBRL(l.custoM2)}/m²
+                      </span>
+                      <span className="font-mono">{fmtBRL(l.subtotal)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-md bg-primary/10 px-2 py-1 text-sm">
+                  <span className="text-muted-foreground">Total combustível equipamento</span>
+                  <span className="font-mono font-semibold text-primary">{fmtBRL(combustivelAutoDetalhe.total)}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Fórmula por tipo: (litros/tanque × R$/L) ÷ rendimento m². Ajuste os valores em Configurações → Tipos.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Cadastre áreas com "Tipo de aplicação" definido para o cálculo automático. Tipos sem rendimento definido são ignorados. Referência atual: {tipos.length} tipo(s).
+              </p>
+            )}
+          </div>
+        )}
       </Section>
 
       <Section title="Combustível do veículo">
@@ -776,6 +829,7 @@ function CustosStep({
     </div>
   );
 }
+
 
 function PrecoStep({
   state,
