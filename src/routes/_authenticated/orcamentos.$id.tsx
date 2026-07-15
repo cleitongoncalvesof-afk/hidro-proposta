@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { calcular } from "@/lib/calc";
 import { fmtBRL, fmtDate, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
-import { baixarPropostaPDF } from "@/lib/pdf";
+import { baixarPropostaPDF, gerarPropostaPDF, nomeArquivoProposta } from "@/lib/pdf";
 import { toast } from "sonner";
 import { Copy, Download, MessageCircle } from "lucide-react";
+import { useState } from "react";
+
 
 export const Route = createFileRoute("/_authenticated/orcamentos/$id")({
   component: OrcamentoDetalhe,
@@ -63,8 +65,10 @@ function OrcamentoDetalhe() {
       const { data: userData } = await supabase.auth.getUser();
       const user_id = userData.user!.id;
       const { data: numData } = await supabase.rpc("next_orcamento_numero", { p_user_id: user_id });
-      const { id: _id, created_at, updated_at, numero, ...rest } = q.data;
+      const { id: _id, created_at, updated_at, numero, pdf_url, ...rest } = q.data;
+      void pdf_url;
       const { itens, cliente, ...restNoRel } = rest as typeof rest & { itens: unknown; cliente: unknown };
+
       const { data: novo, error } = await supabase
         .from("orcamentos")
         .insert({ ...restNoRel, numero: numData as number, status: "rascunho" })
@@ -136,15 +140,72 @@ function OrcamentoDetalhe() {
     criado_em: o.created_at,
   };
 
+  const [sharing, setSharing] = useState(false);
+
   async function enviarWhatsapp() {
-    const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
-    const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
-    const msg = `Olá ${o.cliente?.nome ?? ""}, segue a proposta comercial nº ${padProposta(o.numero)} — ${tipoNome} — Valor total: ${fmtBRL(calc.faturamento_bruto)}. Enviarei o PDF na sequência.`;
-    const url = tel
-      ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
-      : `https://wa.me/?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank");
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
+      const totalTxt = fmtBRL(calc.faturamento_bruto);
+      const numeroTxt = padProposta(o.numero);
+      const nomeCli = o.cliente?.nome ?? "";
+      const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
+
+      const blob = await gerarPropostaPDF(propostaData);
+      const fileName = nomeArquivoProposta(propostaData);
+      const file = new File([blob], fileName, { type: "application/pdf" });
+
+      // 1) Tenta Web Share API com arquivo (Android Chrome, iOS Safari 16.4+)
+      const nav = navigator as Navigator & {
+        canShare?: (data: { files: File[] }) => boolean;
+        share?: (data: { files?: File[]; text?: string; title?: string }) => Promise<void>;
+      };
+      if (nav.canShare && nav.share && nav.canShare({ files: [file] })) {
+        try {
+          await nav.share({
+            files: [file],
+            title: `Proposta ${numeroTxt}`,
+            text: `Olá ${nomeCli}, segue a proposta comercial nº ${numeroTxt} — ${tipoNome} — Valor total: ${totalTxt}.`,
+          });
+          setSharing(false);
+          return;
+        } catch (err) {
+          if ((err as DOMException)?.name === "AbortError") {
+            setSharing(false);
+            return;
+          }
+          // cai no fallback abaixo
+        }
+      }
+
+      // 2) Fallback: upload no Storage → signed URL → wa.me com o link
+      const { data: userData } = await supabase.auth.getUser();
+      const user_id = userData.user!.id;
+      const path = `${user_id}/${numeroTxt}-${Date.now()}.pdf`;
+      const up = await supabase.storage
+        .from("propostas-pdf")
+        .upload(path, blob, { contentType: "application/pdf", upsert: true });
+      if (up.error) throw up.error;
+      const signed = await supabase.storage
+        .from("propostas-pdf")
+        .createSignedUrl(path, 60 * 60 * 24 * 30); // 30 dias
+      if (signed.error || !signed.data?.signedUrl) throw signed.error ?? new Error("Sem URL");
+      const link = signed.data.signedUrl;
+      await supabase.from("orcamentos").update({ pdf_url: link }).eq("id", id);
+
+      const msg = `Olá ${nomeCli}, segue a proposta comercial nº ${numeroTxt} — ${tipoNome} — Valor total: ${totalTxt}.\n\nBaixe o PDF: ${link}`;
+      const url = tel
+        ? `https://wa.me/55${tel}?text=${encodeURIComponent(msg)}`
+        : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.open(url, "_blank");
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao compartilhar");
+    } finally {
+      setSharing(false);
+    }
   }
+
 
   return (
     <div className="space-y-4">
@@ -174,9 +235,10 @@ function OrcamentoDetalhe() {
         <Button onClick={() => baixarPropostaPDF(propostaData)}>
           <Download className="mr-1 h-4 w-4" /> Baixar PDF
         </Button>
-        <Button variant="secondary" onClick={enviarWhatsapp}>
-          <MessageCircle className="mr-1 h-4 w-4" /> WhatsApp
+        <Button variant="secondary" onClick={enviarWhatsapp} disabled={sharing}>
+          <MessageCircle className="mr-1 h-4 w-4" /> {sharing ? "Preparando..." : "WhatsApp"}
         </Button>
+
         <Button variant="outline" onClick={() => duplicar.mutate()} disabled={duplicar.isPending}>
           <Copy className="mr-1 h-4 w-4" /> Duplicar
         </Button>

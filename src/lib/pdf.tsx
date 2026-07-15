@@ -165,14 +165,19 @@ export async function gerarPropostaPDF(data: PropostaData): Promise<Blob> {
   return await pdf(<PropostaPDF data={data} />).toBlob();
 }
 
+export function nomeArquivoProposta(data: PropostaData): string {
+  return `Proposta-${padProposta(data.numero)}-${data.cliente.nome.replace(/\s+/g, "_")}.pdf`;
+}
+
 export async function baixarPropostaPDF(data: PropostaData) {
   const blob = await gerarPropostaPDF(data);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Proposta-${padProposta(data.numero)}-${data.cliente.nome.replace(/\s+/g, "_")}.pdf`;
+  a.download = nomeArquivoProposta(data);
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
+

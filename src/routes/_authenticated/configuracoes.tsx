@@ -179,20 +179,25 @@ function TiposForm() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] }),
   });
+  const save = useMutation({
+    mutationFn: async (patch: { id: string; litros_por_tanque: number; preco_por_litro: number; rendimento_medio_m2: number; custo_padrao_m2: number }) => {
+      const { id, ...rest } = patch;
+      const { error } = await supabase.from("tipos_aplicacao").update(rest).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tipos_aplicacao_all"] });
+      toast.success("Atualizado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   return (
     <div className="mt-3 space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Combustível/m² por tipo = (litros/tanque × R$/L) ÷ rendimento m². Usado quando "Calcular por m²" está ligado na etapa Custos.
+      </p>
       {(data ?? []).map((t) => (
-        <Card key={t.id} className="flex items-center justify-between p-3">
-          <div>
-            <p className="font-medium">{t.nome}</p>
-            <p className="text-xs text-muted-foreground">
-              {t.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix"} · R$ {Number(t.custo_padrao_m2).toFixed(2)}/m²
-            </p>
-          </div>
-          <button onClick={() => del.mutate(t.id)} className="text-destructive">
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </Card>
+        <TipoRow key={t.id} t={t} onSave={(p) => save.mutate({ id: t.id, ...p })} onDelete={() => del.mutate(t.id)} saving={save.isPending} />
       ))}
       <Card className="space-y-2 p-3">
         <p className="font-display text-sm font-semibold text-primary">Novo tipo</p>
@@ -214,6 +219,58 @@ function TiposForm() {
     </div>
   );
 }
+
+function TipoRow({
+  t,
+  onSave,
+  onDelete,
+  saving,
+}: {
+  t: TipoApp;
+  onSave: (p: { litros_por_tanque: number; preco_por_litro: number; rendimento_medio_m2: number; custo_padrao_m2: number }) => void;
+  onDelete: () => void;
+  saving: boolean;
+}) {
+  const [litros, setLitros] = useState(Number(t.litros_por_tanque ?? 6.5));
+  const [preco, setPreco] = useState(Number(t.preco_por_litro ?? 7));
+  const [rend, setRend] = useState(Number(t.rendimento_medio_m2 ?? 250));
+  const [custo, setCusto] = useState(Number(t.custo_padrao_m2 ?? 0));
+  const custoM2 = rend > 0 ? (litros * preco) / rend : 0;
+  return (
+    <Card className="space-y-2 p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-medium">{t.nome}</p>
+          <p className="text-[10px] text-muted-foreground">
+            {t.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix"}
+          </p>
+        </div>
+        <button onClick={onDelete} className="text-destructive">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <F label="Litros/tanque"><NumericInput value={litros} onChange={setLitros} /></F>
+        <F label="R$/L"><NumericInput value={preco} onChange={setPreco} /></F>
+        <F label="Rend. m²"><NumericInput value={rend} onChange={setRend} /></F>
+      </div>
+      <F label="Custo insumo padrão (R$/m²)"><NumericInput value={custo} onChange={setCusto} /></F>
+      <div className="flex items-center justify-between rounded-md bg-muted/40 px-2 py-1 text-xs">
+        <span className="text-muted-foreground">Combustível equipamento por m²</span>
+        <span className="font-mono">R$ {custoM2.toFixed(4)}</span>
+      </div>
+      <Button
+        size="sm"
+        onClick={() => onSave({ litros_por_tanque: litros, preco_por_litro: preco, rendimento_medio_m2: rend, custo_padrao_m2: custo })}
+        disabled={saving}
+        className="w-full"
+      >
+        Salvar
+      </Button>
+    </Card>
+  );
+}
+
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
