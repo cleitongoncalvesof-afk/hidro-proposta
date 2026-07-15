@@ -146,7 +146,38 @@ function NovoOrcamento() {
   });
 
   const template = templates.data?.find((t) => t.tipo === state.proposta_tipo);
-  const calc = useMemo(() => calcular(state), [state]);
+
+  // Combustível do equipamento: quando modo=auto_m2, calcula a partir dos tipos
+  const combustivelAutoDetalhe = useMemo(() => {
+    if (state.combustivel_modo !== "auto_m2" || !tipos.data) return null;
+    const linhas = state.itens
+      .map((it) => {
+        const t = tipos.data!.find((x) => x.id === it.tipo_aplicacao_id);
+        if (!t || !t.rendimento_medio_m2 || Number(t.rendimento_medio_m2) <= 0) return null;
+        const custoM2 =
+          (Number(t.litros_por_tanque) * Number(t.preco_por_litro)) / Number(t.rendimento_medio_m2);
+        return {
+          tipo: t.nome,
+          m2: it.quantidade_m2,
+          custoM2,
+          subtotal: custoM2 * it.quantidade_m2,
+        };
+      })
+      .filter((x): x is { tipo: string; m2: number; custoM2: number; subtotal: number } => !!x);
+    const total = linhas.reduce((a, l) => a + l.subtotal, 0);
+    return { linhas, total };
+  }, [state.combustivel_modo, state.itens, tipos.data]);
+
+  const effectiveState = useMemo(
+    () =>
+      state.combustivel_modo === "auto_m2" && combustivelAutoDetalhe
+        ? { ...state, combustivel_equipamento: combustivelAutoDetalhe.total }
+        : state,
+    [state, combustivelAutoDetalhe],
+  );
+
+  const calc = useMemo(() => calcular(effectiveState), [effectiveState]);
+
 
   // Set defaults from template when tipo picked
   useEffect(() => {
