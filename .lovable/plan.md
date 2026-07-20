@@ -1,51 +1,72 @@
-# Plano — 2 ajustes pontuais
+## Ajuste 1 — Corrigir React error #310 na tela de orçamento
 
-Escopo estrito: apenas os 2 itens abaixo. Nada mais é tocado.
+**Causa confirmada** (arquivo `src/routes/_authenticated/orcamentos.$id.tsx`): o hook `useState(sharing)` está declarado na linha 143, **depois** dos `return` condicionais das linhas 100-101 (`if (q.isLoading …) return …` e `if (!q.data …) return …`). Em cada re-render a quantidade de hooks executados muda → erro #310.
 
-## 1) Combustível do equipamento calculado por m²
+**Correção**: mover `const [sharing, setSharing] = useState(false)` para o topo do componente, junto dos demais hooks, antes de qualquer `return`. A função `enviarWhatsapp` continua definida abaixo (não é hook). Nenhuma outra mudança de comportamento.
 
-**Backend (migration)**
-- A tabela `tipos_aplicacao` já possui `litros_por_tanque`, `preco_por_litro`, `rendimento_medio_m2` (com valores iniciais idênticos aos pedidos). Nenhuma alteração de schema necessária.
-- Adicionar colunas em `orcamentos`:
-  - `combustivel_modo` text default `'manual'` check in (`'manual'`,`'auto_m2'`)
+Teste: criar orçamento novo, salvar, sair, reabrir pela lista, para os dois tipos (Grama Líquida e Mix de Sementes).
 
-**Tela Configurações**
-- Nova seção "Referência de combustível por tipo de aplicação": lista editável de `tipos_aplicacao` (nome, litros_por_tanque, preço/L, rendimento m²), com salvar por linha. Não altera o restante da tela.
+---
 
-**Wizard / Custos Operacionais (novo.tsx e orcamentos.$id.tsx)**
-- Adicionar Toggle "Calcular por m²" × "Valor manual" acima do campo atual.
-- Modo `manual`: comportamento atual intacto (input livre em `combustivel_equipamento`).
-- Modo `auto_m2`:
-  - Para cada item do orçamento, buscar o `tipo_aplicacao_id` do item → obter `(litros × preço) / rendimento = custo/m²`.
-  - `total = Σ (custo/m² do tipo × m² do item)`.
-  - Mostrar detalhamento por tipo (linha com: tipo, m², custo/m², subtotal) e total.
-  - Persistir o total calculado em `combustivel_equipamento` no save, para não mudar `calcular()` em `src/lib/calc.ts` nem a fórmula do custo total.
-- `combustivel_modo` persistido em `orcamentos`.
+## Ajuste 2 — Cadastro fechado (só admin cria contas)
 
-## 2) Envio do PDF pelo WhatsApp
+### Banco (migration única)
 
-**Storage**
-- Bucket `propostas-pdf` já existe (privado). Criar policies mínimas para leitura via signed URL e escrita pelo dono (migration).
+1. Tabela `public.usuarios_perfil`:
+   - `user_id uuid PK REFERENCES auth.users ON DELETE CASCADE`
+   - `nome text`, `email text`, `role text CHECK IN ('admin','usuario') DEFAULT 'usuario'`
+   - `status text CHECK IN ('ativo','bloqueado') DEFAULT 'ativo'`
+   - `criado_em timestamptz DEFAULT now()`
+   - GRANTs padrão (`authenticated` SELECT/INSERT/UPDATE/DELETE; `service_role` ALL). Sem `anon`.
+   - RLS ON.
+2. Funções `SECURITY DEFINER`:
+   - `public.is_admin(uid uuid) → bool` (lê `usuarios_perfil.role`).
+   - `public.is_ativo(uid uuid) → bool` (lê status).
+3. Policies em `usuarios_perfil`:
+   - SELECT: `auth.uid() = user_id OR is_admin(auth.uid())`.
+   - INSERT/UPDATE/DELETE: apenas `is_admin(auth.uid())`.
+4. **Bloquear usuários inativos em todas as tabelas de dados** (`clientes`, `orcamentos`, `orcamento_itens`, `empresa_config`, `proposta_templates`, `tipos_aplicacao`): substituir cada policy existente por uma nova que combina `auth.uid() = user_id AND public.is_ativo(auth.uid())`. Mantém o mesmo escopo por dono, apenas negando quando `status='bloqueado'`.
+5. Atualizar `handle_new_user()` para também inserir em `usuarios_perfil` (role=`usuario`, status=`ativo`, email/nome do metadata).
+6. Backfill: inserir/atualizar linha para `eduardogonc6186@gmail.com` como `role='admin'`, `status='ativo'` (via `auth.users` lookup por email; se o usuário ainda não existe, ele será marcado admin na primeira criação via passo seguinte). Também backfill de todos os usuários existentes em `auth.users` que não tenham linha em `usuarios_perfil`.
 
-**Fluxo de envio (orcamentos.$id.tsx)**
-- Ao clicar em WhatsApp:
-  1. Gerar Blob do PDF via `gerarPropostaPDF` (já existe).
-  2. Upload para `propostas-pdf/{user_id}/{numero}-{timestamp}.pdf` via `supabase.storage`.
-  3. Criar signed URL (validade 30 dias).
-  4. Tentar `navigator.canShare({ files: [File] })` + `navigator.share({ files, text })` → anexa o PDF direto (Android Chrome, iOS Safari recentes).
-  5. Fallback: abrir `https://wa.me/55<tel>?text=<mensagem + link signed URL>`.
-- Persistir última `pdf_url` em `orcamentos.pdf_url` (nova coluna text nullable) para reuso.
-- Loading state no botão durante upload.
+### Server function para criar/gerenciar usuários (admin)
 
-**Verificação**
-- Testar via Playwright headless: fluxo desktop cai no fallback wa.me com link — validar que a URL contém o signed link e abre o PDF.
-- Mobile real (Android/iOS) o usuário testa após deploy — documentar no toast que anexo direto depende do navegador.
+Novo arquivo `src/lib/admin-users.functions.ts` com `createServerFn` + `requireSupabaseAuth`. Cada handler:
+1. Verifica via `context.supabase` que o caller tem `role='admin'` em `usuarios_perfil` (RLS aplica; se não for admin, a leitura retorna vazio → 403).
+2. Só então carrega `supabaseAdmin` via `await import('@/integrations/supabase/client.server')`.
 
-## Arquivos afetados
-- `supabase/migrations/*` (novas colunas + policies storage)
-- `src/routes/_authenticated/configuracoes.tsx` (seção referência combustível)
-- `src/routes/_authenticated/novo.tsx` (toggle + cálculo auto)
-- `src/routes/_authenticated/orcamentos.$id.tsx` (toggle + envio WhatsApp com PDF)
-- `src/lib/pdf.tsx` (exportar helper de upload, opcional)
+Funções:
+- `listarUsuarios()` → retorna lista de `usuarios_perfil`.
+- `criarUsuario({ nome, email, senha, role })` → `admin.createUser({ email, password, email_confirm: true, user_metadata: { nome } })` e upsert em `usuarios_perfil`.
+- `atualizarStatusUsuario({ user_id, status })`.
+- `redefinirSenhaUsuario({ user_id, nova_senha })` → `admin.updateUserById`.
 
-Nada mais é modificado.
+### Frontend
+
+- `src/routes/auth.tsx`: remover completamente o modo `signup` (state `mode`, botão de alternância, branch de `signUp`). Formulário fica só com email/senha + botão "Entrar".
+- Novo hook `useCurrentPerfil()` (em `src/hooks/use-perfil.ts`): `useQuery` que busca `usuarios_perfil` do usuário atual. Usado em vários lugares.
+- `src/routes/_authenticated/route.tsx`: após confirmar sessão, buscar perfil; se `status='bloqueado'`, renderizar tela "Acesso bloqueado" (com botão sair) em vez do `<Outlet />`. Se perfil não existe (edge case), tratar como bloqueado.
+- `src/routes/_authenticated/configuracoes.tsx`: adicionar cartão "Usuários" visível apenas se `role='admin'`, linkando para nova rota `/usuarios`.
+- Nova rota `src/routes/_authenticated/usuarios.tsx` (só admin — se não-admin, redireciona pra `/dashboard`):
+  - Botão "Novo usuário" abre dialog com nome/email/senha/role → chama `criarUsuario`.
+  - Lista de usuários com badge de status + ações: bloquear/desbloquear, redefinir senha (dialog com nova senha).
+
+### Config Supabase Auth
+
+Chamar `supabase--configure_auth` com `disable_signup: true`, `external_anonymous_users_enabled: false`, `auto_confirm_email: true` (para que a criação via admin API seja imediata; o admin API já usa `email_confirm:true`, mas fecha auto-signup público na porta da frente também), `password_hibp_enabled: true`.
+
+---
+
+### Arquivos alterados/criados
+
+- `src/routes/_authenticated/orcamentos.$id.tsx` (mover useState)
+- migration nova (tabela + policies + funções + backfill + trigger update)
+- `src/lib/admin-users.functions.ts` (novo)
+- `src/routes/auth.tsx` (remover signup)
+- `src/hooks/use-perfil.ts` (novo)
+- `src/routes/_authenticated/route.tsx` (gate bloqueado)
+- `src/routes/_authenticated/configuracoes.tsx` (link Usuários se admin)
+- `src/routes/_authenticated/usuarios.tsx` (novo)
+- `supabase--configure_auth` (disable_signup)
+
+Nenhuma outra tela, cálculo ou fluxo é alterado.
