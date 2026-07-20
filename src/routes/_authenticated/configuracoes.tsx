@@ -1,4 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useCurrentPerfil } from "@/hooks/use-perfil";
+import { Users } from "lucide-react";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -23,11 +26,24 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
 });
 
 function Configuracoes() {
+  const perfil = useCurrentPerfil();
   return (
     <div className="space-y-4">
       <h1 className="font-display text-lg font-semibold">Configurações</h1>
+      {perfil.data?.role === "admin" && (
+        <Link
+          to="/usuarios"
+          className="flex items-center justify-between rounded-md border bg-card p-3 text-sm"
+        >
+          <span className="flex items-center gap-2">
+            <Users className="h-4 w-4" /> Gerenciar usuários
+          </span>
+          <span className="text-muted-foreground">›</span>
+        </Link>
+      )}
       <Tabs defaultValue="empresa">
         <TabsList className="grid w-full grid-cols-3">
+
           <TabsTrigger value="empresa">Empresa</TabsTrigger>
           <TabsTrigger value="templates">Propostas</TabsTrigger>
           <TabsTrigger value="tipos">Tipos</TabsTrigger>
