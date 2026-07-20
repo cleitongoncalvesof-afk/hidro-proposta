@@ -22,6 +22,8 @@ function OrcamentoDetalhe() {
   const { id } = Route.useParams();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const [sharing, setSharing] = useState(false);
+
 
   const q = useQuery({
     queryKey: ["orcamento", id],
@@ -140,9 +142,8 @@ function OrcamentoDetalhe() {
     criado_em: o.created_at,
   };
 
-  const [sharing, setSharing] = useState(false);
-
   async function enviarWhatsapp() {
+
     if (sharing) return;
     setSharing(true);
     try {
