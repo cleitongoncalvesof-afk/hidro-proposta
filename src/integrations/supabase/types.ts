@@ -397,6 +397,33 @@ export type Database = {
         }
         Relationships: []
       }
+      usuarios_perfil: {
+        Row: {
+          criado_em: string
+          email: string | null
+          nome: string | null
+          role: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          criado_em?: string
+          email?: string | null
+          nome?: string | null
+          role?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          criado_em?: string
+          email?: string | null
+          nome?: string | null
+          role?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -409,6 +436,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: { uid: string }; Returns: boolean }
+      is_ativo: { Args: { uid: string }; Returns: boolean }
       next_orcamento_numero: { Args: { p_user_id: string }; Returns: number }
     }
     Enums: {
