@@ -19,7 +19,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const nav = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,18 +27,8 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast.success("Conta criada. Entrando...");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       nav({ to: "/dashboard" });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Erro desconhecido";
@@ -81,25 +70,20 @@ function AuthPage() {
               <Input
                 id="password"
                 type="password"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 h-11"
               />
             </div>
             <Button type="submit" disabled={loading} className="h-11 w-full text-base">
-              {loading ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar conta"}
+              {loading ? "Aguarde..." : "Entrar"}
             </Button>
           </form>
-          <button
-            type="button"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            className="mt-4 w-full text-center text-sm text-muted-foreground underline underline-offset-2"
-          >
-            {mode === "login" ? "Ainda não tem conta? Criar conta" : "Já tenho conta"}
-          </button>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Somente o administrador cria contas. Peça acesso a ele.
+          </p>
         </Card>
       </div>
     </div>
