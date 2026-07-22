@@ -136,6 +136,8 @@ function NovoOrcamento() {
       return data;
     },
   });
+  const logoSigned = useLogoSignedUrl(empresa.data?.logo_url);
+
 
   const clientes = useQuery({
     queryKey: ["clientes"],
@@ -287,7 +289,7 @@ function NovoOrcamento() {
   const propostaData: PropostaData | null =
     empresa.data && template && (state.cliente_id || state.cliente_novo?.nome)
       ? {
-          empresa: empresa.data,
+          empresa: { ...empresa.data, logo_url: logoSigned.data ?? empresa.data.logo_url ?? null },
           template,
           cliente:
             (state.cliente_id
