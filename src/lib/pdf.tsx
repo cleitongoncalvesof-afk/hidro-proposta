@@ -3,6 +3,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   pdf,
 } from "@react-pdf/renderer";
@@ -52,9 +53,12 @@ function PropostaPDF({ data }: { data: PropostaData }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
+          {empresa.logo_url ? (
+            <Image src={empresa.logo_url} style={{ width: 45, height: 45, marginRight: 8, objectFit: "contain" }} />
+          ) : null}
           <View style={styles.headerCenter}>
             <Text style={styles.bold}>
-              4G SERVIÇOS LTDA — RAZÃO SOCIAL: {empresa.razao_social}
+              {empresa.razao_social}
             </Text>
             <Text>{empresa.endereco}</Text>
             <Text>CNPJ: {empresa.cnpj} — Fone: {empresa.telefone}</Text>

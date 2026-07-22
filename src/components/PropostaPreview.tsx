@@ -15,6 +15,7 @@ export type EmpresaConfig = {
   cidade_assinatura: string;
   texto_condicoes_pagamento_padrao: string;
   texto_clausulas_cobranca: string;
+  logo_url?: string | null;
 };
 
 export type PropostaTemplate = {
@@ -66,9 +67,9 @@ export function PropostaPreview({ data }: { data: PropostaData }) {
     <div className="rounded-lg border bg-white p-4 text-[10px] leading-snug text-black shadow-sm">
       {/* Cabeçalho */}
       <div className="flex items-start gap-3 border-b pb-3">
-        <img src={logoUrl} alt="" className="h-14 w-14 shrink-0" />
+        <img src={empresa.logo_url || logoUrl} alt="" className="h-14 w-14 shrink-0 object-contain" />
         <div className="min-w-0 flex-1">
-          <p className="font-bold">4G SERVIÇOS LTDA — RAZÃO SOCIAL: {empresa.razao_social}</p>
+          <p className="font-bold">{empresa.razao_social}</p>
           <p>{empresa.endereco}</p>
           <p>CNPJ: {empresa.cnpj} — Fone: {empresa.telefone}</p>
           <p>E-mail: {empresa.email}</p>
