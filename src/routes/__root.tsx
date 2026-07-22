@@ -70,24 +70,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#1F3D2B" },
-      { title: "4G AGROVERDE — Orçamentos e Propostas" },
+      { title: "HIDRO - PROPOSTA — Orçamentos e Propostas de Hidrossemeadura" },
       {
         name: "description",
         content:
-          "Gere orçamentos de hidrossemeadura e propostas comerciais da 4G AGROVERDE direto do celular.",
+          "Cadastre o cliente, calcule o preço automaticamente e envie a proposta em PDF pelo WhatsApp. Feito para hidrossemeadura.",
       },
-      { property: "og:title", content: "4G AGROVERDE — Orçamentos e Propostas" },
+      { property: "og:title", content: "HIDRO - PROPOSTA" },
       {
         property: "og:description",
         content:
-          "Gere orçamentos de hidrossemeadura e propostas comerciais da 4G AGROVERDE direto do celular.",
+          "Orçamento pronto em minutos, direto do celular. PDF pronto para enviar pelo WhatsApp.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "4G AGROVERDE — Orçamentos e Propostas" },
-      { name: "twitter:description", content: "Gere orçamentos de hidrossemeadura e propostas comerciais da 4G AGROVERDE direto do celular." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f10e50bd-d32e-46f2-93f4-26bdf1128916" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/f10e50bd-d32e-46f2-93f4-26bdf1128916" },
+      { name: "twitter:title", content: "HIDRO - PROPOSTA" },
+      { name: "twitter:description", content: "Orçamento pronto em minutos, direto do celular." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
