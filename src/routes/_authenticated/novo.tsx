@@ -17,6 +17,7 @@ import { fmtBRL, fmtPct, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
 import { baixarPropostaPDF } from "@/lib/pdf";
 import type { Database } from "@/integrations/supabase/types";
+import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 type Tipo = "grama_liquida" | "mix_sementes";
 type Item = { descricao: string; quantidade_m2: number; custo_insumo_m2: number; tipo_aplicacao_id?: string | null };
