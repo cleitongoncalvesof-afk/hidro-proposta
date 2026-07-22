@@ -13,9 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Upload } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { NumericInput } from "./novo";
+import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 type Empresa = Database["public"]["Tables"]["empresa_config"]["Row"];
 type Template = Database["public"]["Tables"]["proposta_templates"]["Row"];
@@ -82,6 +83,7 @@ function EmpresaForm() {
   const set = <K extends keyof Empresa>(k: K, v: Empresa[K]) => setForm((f) => ({ ...f, [k]: v }));
   return (
     <div className="mt-3 space-y-3">
+      <LogoUpload currentPath={form.logo_url ?? null} onChanged={() => qc.invalidateQueries({ queryKey: ["empresa"] })} />
       <Card className="space-y-3 p-3">
         <F label="Razão social"><Input value={form.razao_social ?? ""} onChange={(e) => set("razao_social", e.target.value)} /></F>
         <F label="Nome fantasia"><Input value={form.nome_fantasia ?? ""} onChange={(e) => set("nome_fantasia", e.target.value)} /></F>
