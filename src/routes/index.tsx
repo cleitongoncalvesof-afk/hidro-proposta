@@ -17,11 +17,11 @@ export const Route = createFileRoute("/")({
         content:
           "Sistema para empresas de hidrossemeadura: cadastre o cliente, o preço calcula sozinho e a proposta em PDF vai pelo WhatsApp na hora.",
       },
-      { property: "og:title", content: "HIDRO - PROPOSTA" },
+      { property: "og:title", content: "HIDRO - PROPOSTA — Orçamento de Hidrossemeadura em Minutos" },
       {
         property: "og:description",
         content:
-          "Orçamento pronto em minutos, direto do celular. Feito para hidrossemeadura.",
+          "Sistema para empresas de hidrossemeadura: cadastre o cliente, o preço calcula sozinho e a proposta em PDF vai pelo WhatsApp na hora.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

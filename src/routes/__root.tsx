@@ -70,22 +70,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { name: "theme-color", content: "#1F3D2B" },
-      { title: "HIDRO - PROPOSTA — Orçamentos e Propostas de Hidrossemeadura" },
+      { title: "HIDRO - PROPOSTA — Orçamento de Hidrossemeadura em Minutos" },
       {
         name: "description",
         content:
-          "Cadastre o cliente, calcule o preço automaticamente e envie a proposta em PDF pelo WhatsApp. Feito para hidrossemeadura.",
+          "Sistema para empresas de hidrossemeadura: cadastre o cliente, o preço calcula sozinho e a proposta em PDF vai pelo WhatsApp na hora.",
       },
-      { property: "og:title", content: "HIDRO - PROPOSTA" },
+      { property: "og:title", content: "HIDRO - PROPOSTA — Orçamento de Hidrossemeadura em Minutos" },
       {
         property: "og:description",
         content:
-          "Orçamento pronto em minutos, direto do celular. PDF pronto para enviar pelo WhatsApp.",
+          "Sistema para empresas de hidrossemeadura: cadastre o cliente, o preço calcula sozinho e a proposta em PDF vai pelo WhatsApp na hora.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "HIDRO - PROPOSTA" },
-      { name: "twitter:description", content: "Orçamento pronto em minutos, direto do celular." },
+      { name: "twitter:title", content: "HIDRO - PROPOSTA — Orçamento de Hidrossemeadura em Minutos" },
+      { name: "twitter:description", content: "Sistema para empresas de hidrossemeadura: cadastre o cliente, o preço calcula sozinho e a proposta em PDF vai pelo WhatsApp na hora." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/aa1b1382-13db-4dbd-947a-37577a3eeb3c/id-preview-bacfd6cd--6eb60a41-20ee-4f29-b8e2-329946bb06e3.lovable.app-1784732972891.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/aa1b1382-13db-4dbd-947a-37577a3eeb3c/id-preview-bacfd6cd--6eb60a41-20ee-4f29-b8e2-329946bb06e3.lovable.app-1784732972891.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
