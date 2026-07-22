@@ -13,9 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, Upload } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { NumericInput } from "./novo";
+import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 type Empresa = Database["public"]["Tables"]["empresa_config"]["Row"];
 type Template = Database["public"]["Tables"]["proposta_templates"]["Row"];
@@ -82,6 +83,7 @@ function EmpresaForm() {
   const set = <K extends keyof Empresa>(k: K, v: Empresa[K]) => setForm((f) => ({ ...f, [k]: v }));
   return (
     <div className="mt-3 space-y-3">
+      <LogoUpload currentPath={form.logo_url ?? null} onChanged={() => qc.invalidateQueries({ queryKey: ["empresa"] })} />
       <Card className="space-y-3 p-3">
         <F label="Razão social"><Input value={form.razao_social ?? ""} onChange={(e) => set("razao_social", e.target.value)} /></F>
         <F label="Nome fantasia"><Input value={form.nome_fantasia ?? ""} onChange={(e) => set("nome_fantasia", e.target.value)} /></F>
@@ -283,6 +285,83 @@ function TipoRow({
       >
         Salvar
       </Button>
+    </Card>
+  );
+}
+
+function LogoUpload({ currentPath, onChanged }: { currentPath: string | null; onChanged: () => void }) {
+  const signed = useLogoSignedUrl(currentPath);
+  const [uploading, setUploading] = useState(false);
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Arquivo maior que 2MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user!.id;
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${uid}/logo-${Date.now()}.${ext}`;
+      const up = await supabase.storage.from("empresa-logos").upload(path, file, { upsert: true, contentType: file.type });
+      if (up.error) throw up.error;
+      if (currentPath && currentPath !== path) {
+        await supabase.storage.from("empresa-logos").remove([currentPath]);
+      }
+      const { error } = await supabase.from("empresa_config").update({ logo_url: path }).eq("user_id", uid);
+      if (error) throw error;
+      toast.success("Logomarca atualizada");
+      onChanged();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+  async function handleRemove() {
+    if (!currentPath) return;
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      await supabase.storage.from("empresa-logos").remove([currentPath]);
+      const { error } = await supabase.from("empresa_config").update({ logo_url: null }).eq("user_id", u.user!.id);
+      if (error) throw error;
+      toast.success("Logomarca removida");
+      onChanged();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+  return (
+    <Card className="space-y-3 p-3">
+      <p className="text-sm font-semibold">Logomarca</p>
+      <div className="flex items-center gap-3">
+        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border bg-muted">
+          {signed.data ? (
+            <img src={signed.data} alt="Logo" className="h-full w-full object-contain" />
+          ) : (
+            <span className="text-[10px] text-muted-foreground">Sem logo</span>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm hover:bg-muted">
+            <Upload className="h-4 w-4" />
+            <span>{uploading ? "Enviando..." : "Selecionar imagem"}</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handleFile} disabled={uploading} />
+          </label>
+          {currentPath && (
+            <Button size="sm" variant="ghost" onClick={handleRemove} disabled={uploading}>
+              Remover
+            </Button>
+          )}
+          <p className="text-[11px] text-muted-foreground">PNG/JPG até 2MB. Aparece no cabeçalho da proposta.</p>
+        </div>
+      </div>
     </Card>
   );
 }

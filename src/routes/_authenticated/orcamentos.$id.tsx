@@ -12,6 +12,7 @@ import { baixarPropostaPDF, gerarPropostaPDF, nomeArquivoProposta } from "@/lib/
 import { toast } from "sonner";
 import { Copy, Download, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 
 export const Route = createFileRoute("/_authenticated/orcamentos/$id")({
@@ -42,6 +43,7 @@ function OrcamentoDetalhe() {
     queryKey: ["empresa"],
     queryFn: async () => (await supabase.from("empresa_config").select("*").maybeSingle()).data,
   });
+  const logoSigned = useLogoSignedUrl(empresa.data?.logo_url);
   const template = useQuery({
     queryKey: ["template", q.data?.proposta_tipo],
     enabled: !!q.data,
@@ -124,7 +126,7 @@ function OrcamentoDetalhe() {
   });
 
   const propostaData: PropostaData = {
-    empresa: empresa.data,
+    empresa: { ...empresa.data, logo_url: logoSigned.data ?? empresa.data.logo_url ?? null },
     template: template.data,
     cliente: o.cliente!,
     numero: o.numero,

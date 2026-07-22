@@ -43,10 +43,10 @@ function AuthPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-3 text-center">
           <div className="rounded-2xl bg-primary p-3">
-            <img src={logoUrl} alt="4G AGROVERDE" className="h-12 w-12" />
+            <img src={logoUrl} alt="HIDRO - PROPOSTA" className="h-12 w-12" />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-bold text-primary">4G AGROVERDE</h1>
+            <h1 className="font-display text-2xl font-bold text-primary">HIDRO - PROPOSTA</h1>
             <p className="text-sm text-muted-foreground">Orçamentos e propostas</p>
           </div>
         </div>

@@ -1,72 +1,70 @@
-## Ajuste 1 — Corrigir React error #310 na tela de orçamento
 
-**Causa confirmada** (arquivo `src/routes/_authenticated/orcamentos.$id.tsx`): o hook `useState(sharing)` está declarado na linha 143, **depois** dos `return` condicionais das linhas 100-101 (`if (q.isLoading …) return …` e `if (!q.data …) return …`). Em cada re-render a quantidade de hooks executados muda → erro #310.
+## 1) Renomear o app para "HIDRO - PROPOSTA"
 
-**Correção**: mover `const [sharing, setSharing] = useState(false)` para o topo do componente, junto dos demais hooks, antes de qualquer `return`. A função `enviarWhatsapp` continua definida abaixo (não é hook). Nenhuma outra mudança de comportamento.
+Substituir todas as ocorrências de "4G AGROVERDE" na interface pelo novo nome, mantendo o design atual (cores, tipografia, layout).
 
-Teste: criar orçamento novo, salvar, sair, reabrir pela lista, para os dois tipos (Grama Líquida e Mix de Sementes).
+Arquivos afetados:
+- `src/components/AppShell.tsx` — nome no cabeçalho
+- `src/routes/auth.tsx` — título da tela de login
+- `src/routes/__root.tsx` — `<title>`, meta description, og:title/description, twitter
+- Textos internos das propostas em PDF (`PropostaPreview.tsx`, `src/lib/pdf.tsx`) continuam usando o nome da empresa cadastrada em `empresa_config` (não mudam) — só o *chrome* do sistema recebe o novo nome.
 
----
+## 2) Logomarca personalizada por usuário
 
-## Ajuste 2 — Cadastro fechado (só admin cria contas)
+Cada usuário passa a ter uma logo própria, usada no cabeçalho do sistema, na tela de login (não, aí é logo padrão do app) e principalmente na **proposta em PDF**.
 
-### Banco (migration única)
+Backend:
+- Migração adicionando coluna `logo_url text` em `public.empresa_config`.
+- Novo bucket público `empresa-logos` via `supabase--storage_create_bucket` + policies em `storage.objects` permitindo `authenticated` fazer INSERT/UPDATE/DELETE apenas em objetos cujo primeiro segmento do path é o próprio `auth.uid()`.
 
-1. Tabela `public.usuarios_perfil`:
-   - `user_id uuid PK REFERENCES auth.users ON DELETE CASCADE`
-   - `nome text`, `email text`, `role text CHECK IN ('admin','usuario') DEFAULT 'usuario'`
-   - `status text CHECK IN ('ativo','bloqueado') DEFAULT 'ativo'`
-   - `criado_em timestamptz DEFAULT now()`
-   - GRANTs padrão (`authenticated` SELECT/INSERT/UPDATE/DELETE; `service_role` ALL). Sem `anon`.
-   - RLS ON.
-2. Funções `SECURITY DEFINER`:
-   - `public.is_admin(uid uuid) → bool` (lê `usuarios_perfil.role`).
-   - `public.is_ativo(uid uuid) → bool` (lê status).
-3. Policies em `usuarios_perfil`:
-   - SELECT: `auth.uid() = user_id OR is_admin(auth.uid())`.
-   - INSERT/UPDATE/DELETE: apenas `is_admin(auth.uid())`.
-4. **Bloquear usuários inativos em todas as tabelas de dados** (`clientes`, `orcamentos`, `orcamento_itens`, `empresa_config`, `proposta_templates`, `tipos_aplicacao`): substituir cada policy existente por uma nova que combina `auth.uid() = user_id AND public.is_ativo(auth.uid())`. Mantém o mesmo escopo por dono, apenas negando quando `status='bloqueado'`.
-5. Atualizar `handle_new_user()` para também inserir em `usuarios_perfil` (role=`usuario`, status=`ativo`, email/nome do metadata).
-6. Backfill: inserir/atualizar linha para `eduardogonc6186@gmail.com` como `role='admin'`, `status='ativo'` (via `auth.users` lookup por email; se o usuário ainda não existe, ele será marcado admin na primeira criação via passo seguinte). Também backfill de todos os usuários existentes em `auth.users` que não tenham linha em `usuarios_perfil`.
+Frontend:
+- Em **Configurações → Empresa**: novo campo "Logomarca" com preview atual, input de upload (aceita PNG/JPG/SVG, máx ~1MB) e botão "Remover". Upload envia para `empresa-logos/{user_id}/logo.{ext}`, grava a URL pública em `empresa_config.logo_url`.
+- `AppShell.tsx`: se `empresa_config.logo_url` do usuário logado existir, mostra ela no header (fallback: logo padrão atual).
+- `PropostaPreview.tsx` e `src/lib/pdf.tsx`: passar `empresa.logo_url` e renderizar no cabeçalho da proposta em vez do `logo.svg` fixo, com fallback para a logo padrão quando ausente.
+- Novo hook simples de leitura de `empresa_config` (ou reutilizar a query existente) para a AppShell.
 
-### Server function para criar/gerenciar usuários (admin)
+O restante da edição da proposta (textos, templates, tipos, valores) continua funcionando exatamente como hoje.
 
-Novo arquivo `src/lib/admin-users.functions.ts` com `createServerFn` + `requireSupabaseAuth`. Cada handler:
-1. Verifica via `context.supabase` que o caller tem `role='admin'` em `usuarios_perfil` (RLS aplica; se não for admin, a leitura retorna vazio → 403).
-2. Só então carrega `supabaseAdmin` via `await import('@/integrations/supabase/client.server')`.
+## 3) Página de vendas pública em `/`
 
-Funções:
-- `listarUsuarios()` → retorna lista de `usuarios_perfil`.
-- `criarUsuario({ nome, email, senha, role })` → `admin.createUser({ email, password, email_confirm: true, user_metadata: { nome } })` e upsert em `usuarios_perfil`.
-- `atualizarStatusUsuario({ user_id, status })`.
-- `redefinirSenhaUsuario({ user_id, nova_senha })` → `admin.updateUserById`.
+Hoje `/` está sob `_authenticated` e redireciona para `/auth`. Vamos mover a home para uma rota pública e deixar o dashboard como destino pós-login.
 
-### Frontend
+Mudanças de roteamento:
+- Remover `src/routes/_authenticated/index.tsx` (o redirect atual `/ → /dashboard`).
+- Criar `src/routes/index.tsx` **público** com a landing.
+- Após login em `auth.tsx`, redirecionar para `/dashboard` (já é o comportamento; garantir que sim).
+- Botão "Entrar" no header da landing → `/auth`.
 
-- `src/routes/auth.tsx`: remover completamente o modo `signup` (state `mode`, botão de alternância, branch de `signUp`). Formulário fica só com email/senha + botão "Entrar".
-- Novo hook `useCurrentPerfil()` (em `src/hooks/use-perfil.ts`): `useQuery` que busca `usuarios_perfil` do usuário atual. Usado em vários lugares.
-- `src/routes/_authenticated/route.tsx`: após confirmar sessão, buscar perfil; se `status='bloqueado'`, renderizar tela "Acesso bloqueado" (com botão sair) em vez do `<Outlet />`. Se perfil não existe (edge case), tratar como bloqueado.
-- `src/routes/_authenticated/configuracoes.tsx`: adicionar cartão "Usuários" visível apenas se `role='admin'`, linkando para nova rota `/usuarios`.
-- Nova rota `src/routes/_authenticated/usuarios.tsx` (só admin — se não-admin, redireciona pra `/dashboard`):
-  - Botão "Novo usuário" abre dialog com nome/email/senha/role → chama `criarUsuario`.
-  - Lista de usuários com badge de status + ações: bloquear/desbloquear, redefinir senha (dialog com nova senha).
+Conteúdo da landing (mobile-first, mesma identidade visual — verde/creme, Space Grotesk/Inter):
 
-### Config Supabase Auth
+1. **Header**: logo "HIDRO - PROPOSTA" à esquerda, botão "Entrar" à direita → `/auth`.
+2. **Hero**: título "Orçamento pronto em minutos, direto do celular". Subtítulo explicando: cadastra cliente, cálculo automático via tabela de custo de insumos, PDF pronto pra WhatsApp. CTA principal "Falar no WhatsApp".
+3. **Como funciona** — 4 passos com ícones (lucide): Cadastre o cliente · Lance os itens · O preço calcula sozinho · Envie o PDF pelo WhatsApp.
+4. **Para quem é** — texto focado em quem faz **hidrossemeadura** e hoje usa a **planilha de custo da VERDETEC**; o sistema já vem com essa estrutura pronta.
+5. **Prova social** — bloco em destaque com placeholder editável ("de X minutos para 3 minutos por orçamento") e espaço reservado para depoimento futuro (comentário no código indicando onde editar).
+6. **Plano/Preço** — card único: valor mensal como **constante no topo do arquivo** (`const PRECO_MENSAL = "R$ 98,90/mês"`) fácil de editar. Lista de inclusos: clientes ilimitados, cálculo automático, geração de PDF, envio por WhatsApp, suporte. CTA "Quero contratar" → WhatsApp.
+7. **Rodapé** — nome da empresa, contato (WhatsApp), aviso "Acesso liberado manualmente após a contratação. Não há cadastro automático.".
 
-Chamar `supabase--configure_auth` com `disable_signup: true`, `external_anonymous_users_enabled: false`, `auto_confirm_email: true` (para que a criação via admin API seja imediata; o admin API já usa `email_confirm:true`, mas fecha auto-signup público na porta da frente também), `password_hibp_enabled: true`.
+CTAs de conversão (Hero + Plano + Rodapé) todos apontam para:
+```
+https://wa.me/5599992051019?text=Ol%C3%A1%2C%20quero%20contratar%20o%20HIDRO%20-%20PROPOSTA
+```
+(número interpretado como `+55 99 99205-1019`; deixo o número numa constante no topo do arquivo — se estiver errado, é 1 edição só. Confirmo com você depois.)
 
----
+Nenhum CTA leva para formulário de cadastro. A tela `/auth` permanece só com login (já está assim).
 
-### Arquivos alterados/criados
+SEO (`head()` do `src/routes/index.tsx`):
+- title: "HIDRO - PROPOSTA — Orçamentos de hidrossemeadura em minutos"
+- description específica focada em conversão + og/twitter equivalentes.
 
-- `src/routes/_authenticated/orcamentos.$id.tsx` (mover useState)
-- migration nova (tabela + policies + funções + backfill + trigger update)
-- `src/lib/admin-users.functions.ts` (novo)
-- `src/routes/auth.tsx` (remover signup)
-- `src/hooks/use-perfil.ts` (novo)
-- `src/routes/_authenticated/route.tsx` (gate bloqueado)
-- `src/routes/_authenticated/configuracoes.tsx` (link Usuários se admin)
-- `src/routes/_authenticated/usuarios.tsx` (novo)
-- `supabase--configure_auth` (disable_signup)
+## Fora de escopo
 
-Nenhuma outra tela, cálculo ou fluxo é alterado.
+- Nenhuma mudança em lógica de cálculo, fluxo de login, gate de bloqueio, painel Admin Master, edição de proposta ou envio por WhatsApp existentes.
+- Sem alteração em `auth.tsx` além do nome no título.
+
+## Detalhes técnicos
+
+- Migração única: `ALTER TABLE public.empresa_config ADD COLUMN logo_url text;` (sem GRANT novo — tabela já concedida).
+- Bucket `empresa-logos` público (leitura anônima liberada; escrita restrita ao dono via policy por prefixo de path).
+- Upload usa `supabase.storage.from('empresa-logos').upload(\`${uid}/logo-${Date.now()}.${ext}\`, file, { upsert: true })`.
+- Landing é uma página estática pura, sem chamadas ao Supabase — carrega rápido e não depende de sessão.

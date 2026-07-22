@@ -17,6 +17,7 @@ import { fmtBRL, fmtPct, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
 import { baixarPropostaPDF } from "@/lib/pdf";
 import type { Database } from "@/integrations/supabase/types";
+import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 type Tipo = "grama_liquida" | "mix_sementes";
 type Item = { descricao: string; quantidade_m2: number; custo_insumo_m2: number; tipo_aplicacao_id?: string | null };
@@ -135,6 +136,8 @@ function NovoOrcamento() {
       return data;
     },
   });
+  const logoSigned = useLogoSignedUrl(empresa.data?.logo_url);
+
 
   const clientes = useQuery({
     queryKey: ["clientes"],
@@ -286,7 +289,7 @@ function NovoOrcamento() {
   const propostaData: PropostaData | null =
     empresa.data && template && (state.cliente_id || state.cliente_novo?.nome)
       ? {
-          empresa: empresa.data,
+          empresa: { ...empresa.data, logo_url: logoSigned.data ?? empresa.data.logo_url ?? null },
           template,
           cliente:
             (state.cliente_id
