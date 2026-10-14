@@ -77,15 +77,20 @@ const emptyState: FormState = {
 const DRAFT_KEY = "4g_novo_orcamento_draft";
 
 export const Route = createFileRoute("/_authenticated/novo")({
+  validateSearch: (s: Record<string, unknown>): { edit?: string } => ({
+    edit: typeof s.edit === "string" ? s.edit : undefined,
+  }),
   component: NovoOrcamento,
 });
 
 function NovoOrcamento() {
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { edit: editId } = Route.useSearch();
   const [step, setStep] = useState(0);
+  const [editNumero, setEditNumero] = useState<number | null>(null);
   const [state, setState] = useState<FormState>(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !editId) {
       const s = localStorage.getItem(DRAFT_KEY);
       if (s) {
         try {
@@ -97,10 +102,62 @@ function NovoOrcamento() {
   });
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !editId) {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
     }
-  }, [state]);
+  }, [state, editId]);
+
+  // Modo edição: carrega orçamento existente
+  useEffect(() => {
+    if (!editId) return;
+    let cancel = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("orcamentos")
+        .select("*, itens:orcamento_itens(*)")
+        .eq("id", editId)
+        .single();
+      if (error || !data || cancel) {
+        if (error) toast.error("Não foi possível carregar a proposta");
+        return;
+      }
+      const itens = [...(data.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
+      setEditNumero(data.numero);
+      setState({
+        proposta_tipo: data.proposta_tipo,
+        cliente_id: data.cliente_id,
+        cliente_novo: null,
+        obra_descricao: data.obra_descricao ?? "",
+        itens: itens.map((i) => ({
+          descricao: i.descricao,
+          quantidade_m2: Number(i.quantidade_m2),
+          custo_insumo_m2: Number(i.custo_insumo_m2),
+          tipo_aplicacao_id: i.tipo_aplicacao_id,
+        })),
+        frete: Number(data.frete),
+        mao_obra_diaria: Number(data.mao_obra_diaria),
+        mao_obra_dias: Number(data.mao_obra_dias),
+        alimentacao_diaria: Number(data.alimentacao_diaria),
+        alimentacao_dias: Number(data.alimentacao_dias),
+        hospedagem_diaria: Number(data.hospedagem_diaria),
+        hospedagem_qtd: Number(data.hospedagem_qtd),
+        combustivel_modo: data.combustivel_modo === "auto_m2" ? "auto_m2" : "manual",
+        combustivel_equipamento: Number(data.combustivel_equipamento),
+        combustivel_km_l: Number(data.combustivel_km_l),
+        combustivel_r_l: Number(data.combustivel_r_l),
+        combustivel_distancia_km: Number(data.combustivel_distancia_km),
+        outras_despesas: Number(data.outras_despesas),
+        mobilizacoes_extras: Number(data.mobilizacoes_extras),
+        valor_mobilizacao_adicional: Number(data.valor_mobilizacao_adicional),
+        margem: Number(data.margem),
+        aliquota: Number(data.aliquota),
+      });
+      setStep(2);
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [editId]);
 
   const update = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setState((s) => ({ ...s, [k]: v }));
@@ -228,6 +285,53 @@ function NovoOrcamento() {
       }
       if (!cliente_id) throw new Error("Cliente obrigatório");
 
+      const campos = {
+        cliente_id,
+        proposta_tipo: state.proposta_tipo!,
+        obra_descricao: state.obra_descricao || null,
+        mobilizacoes_extras: state.mobilizacoes_extras,
+        valor_mobilizacao_adicional: state.valor_mobilizacao_adicional,
+        status: novo_status,
+        frete: state.frete,
+        mao_obra_diaria: state.mao_obra_diaria,
+        mao_obra_dias: state.mao_obra_dias,
+        alimentacao_diaria: state.alimentacao_diaria,
+        alimentacao_dias: state.alimentacao_dias,
+        hospedagem_diaria: state.hospedagem_diaria,
+        hospedagem_qtd: state.hospedagem_qtd,
+        combustivel_modo: state.combustivel_modo,
+        combustivel_equipamento: effectiveState.combustivel_equipamento,
+        combustivel_km_l: state.combustivel_km_l,
+        combustivel_r_l: state.combustivel_r_l,
+        combustivel_distancia_km: state.combustivel_distancia_km,
+        outras_despesas: state.outras_despesas,
+        margem: state.margem,
+        aliquota: state.aliquota,
+      };
+      const itensRows = (orcamento_id: string) =>
+        state.itens.map((it, i) => ({
+          orcamento_id,
+          user_id,
+          tipo_aplicacao_id: it.tipo_aplicacao_id || null,
+          descricao: it.descricao,
+          quantidade_m2: it.quantidade_m2,
+          custo_insumo_m2: it.custo_insumo_m2,
+          ordem: i,
+        }));
+
+      if (editId) {
+        const { error: upErr } = await supabase
+          .from("orcamentos")
+          .update({ ...campos, pdf_url: null })
+          .eq("id", editId);
+        if (upErr) throw upErr;
+        const { error: delErr } = await supabase.from("orcamento_itens").delete().eq("orcamento_id", editId);
+        if (delErr) throw delErr;
+        const { error: insErr } = await supabase.from("orcamento_itens").insert(itensRows(editId));
+        if (insErr) throw insErr;
+        return editId;
+      }
+
       const { data: numData, error: numErr } = await supabase.rpc("next_orcamento_numero", { p_user_id: user_id });
       if (numErr) throw numErr;
 
@@ -278,9 +382,10 @@ function NovoOrcamento() {
       return orc.id;
     },
     onSuccess: (id) => {
-      localStorage.removeItem(DRAFT_KEY);
+      if (!editId) localStorage.removeItem(DRAFT_KEY);
       qc.invalidateQueries({ queryKey: ["orcamentos-dashboard"] });
-      toast.success("Orçamento salvo");
+      qc.invalidateQueries({ queryKey: ["orcamento", id] });
+      toast.success(editId ? "Proposta atualizada" : "Orçamento salvo");
       nav({ to: "/orcamentos/$id", params: { id } });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -295,7 +400,7 @@ function NovoOrcamento() {
             (state.cliente_id
               ? clientes.data?.find((c) => c.id === state.cliente_id)
               : (state.cliente_novo as Cliente)) ?? { nome: "" },
-          numero: 0,
+          numero: editNumero ?? 0,
           proposta_tipo: state.proposta_tipo!,
           obra_descricao: state.obra_descricao,
           itens: state.itens,
@@ -309,6 +414,11 @@ function NovoOrcamento() {
 
   return (
     <div className="space-y-4">
+      {editId && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary">
+          Editando proposta {editNumero != null ? padProposta(editNumero) : "..."}
+        </div>
+      )}
       <div>
         <div className="mb-1 flex items-center justify-between text-xs">
           <span className="font-semibold text-primary">{stepLabels[step]}</span>

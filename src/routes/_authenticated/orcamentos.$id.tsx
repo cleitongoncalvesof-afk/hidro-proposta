@@ -10,7 +10,7 @@ import { fmtBRL, fmtDate, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
 import { baixarPropostaPDF, gerarPropostaPDF, nomeArquivoProposta } from "@/lib/pdf";
 import { toast } from "sonner";
-import { Copy, Download, MessageCircle } from "lucide-react";
+import { Copy, Download, MessageCircle, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
@@ -242,6 +242,9 @@ function OrcamentoDetalhe() {
           <MessageCircle className="mr-1 h-4 w-4" /> {sharing ? "Preparando..." : "WhatsApp"}
         </Button>
 
+        <Button variant="outline" className="col-span-2" onClick={() => nav({ to: "/novo", search: { edit: id } })}>
+          <Pencil className="mr-1 h-4 w-4" /> Editar proposta (valores / m²)
+        </Button>
         <Button variant="outline" onClick={() => duplicar.mutate()} disabled={duplicar.isPending}>
           <Copy className="mr-1 h-4 w-4" /> Duplicar
         </Button>
