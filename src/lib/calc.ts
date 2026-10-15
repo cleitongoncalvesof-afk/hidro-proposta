@@ -84,3 +84,24 @@ export function calcular(o: OrcamentoInput): OrcamentoCalc {
     lucro_real,
   };
 }
+
+export type ServicoExtra = {
+  descricao: string;
+  unidade: string;
+  quantidade: number;
+  valor_unitario: number;
+};
+
+export function parseServicosExtras(v: unknown): ServicoExtra[] {
+  if (!Array.isArray(v)) return [];
+  return v.map((s: Record<string, unknown>) => ({
+    descricao: String(s?.descricao ?? ""),
+    unidade: String(s?.unidade ?? "UN"),
+    quantidade: Number(s?.quantidade ?? 0) || 0,
+    valor_unitario: Number(s?.valor_unitario ?? 0) || 0,
+  }));
+}
+
+export function totalServicosExtras(s: ServicoExtra[] | undefined | null): number {
+  return (s ?? []).reduce((a, x) => a + (Number(x.quantidade) || 0) * (Number(x.valor_unitario) || 0), 0);
+}

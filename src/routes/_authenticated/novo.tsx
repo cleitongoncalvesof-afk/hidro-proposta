@@ -46,6 +46,7 @@ type FormState = {
   valor_mobilizacao_adicional: number;
   margem: number;
   aliquota: number;
+  servicos_extras: ServicoExtra[];
 };
 
 const emptyState: FormState = {
@@ -71,6 +72,7 @@ const emptyState: FormState = {
   valor_mobilizacao_adicional: 100,
   margem: 0.7,
   aliquota: 0.12,
+  servicos_extras: [],
 };
 
 
@@ -151,6 +153,7 @@ function NovoOrcamento() {
         valor_mobilizacao_adicional: Number(data.valor_mobilizacao_adicional),
         margem: Number(data.margem),
         aliquota: Number(data.aliquota),
+        servicos_extras: parseServicosExtras((data as { servicos_extras?: unknown }).servicos_extras),
       });
       setStep(2);
     })();
@@ -290,6 +293,7 @@ function NovoOrcamento() {
         proposta_tipo: state.proposta_tipo!,
         obra_descricao: state.obra_descricao || null,
         mobilizacoes_extras: state.mobilizacoes_extras,
+        servicos_extras: (state.servicos_extras ?? []).filter((x) => x.descricao.trim()) as unknown as Json,
         valor_mobilizacao_adicional: state.valor_mobilizacao_adicional,
         status: novo_status,
         frete: state.frete,
@@ -344,6 +348,7 @@ function NovoOrcamento() {
           proposta_tipo: state.proposta_tipo!,
           obra_descricao: state.obra_descricao || null,
           mobilizacoes_extras: state.mobilizacoes_extras,
+        servicos_extras: (state.servicos_extras ?? []).filter((x) => x.descricao.trim()) as unknown as Json,
           valor_mobilizacao_adicional: state.valor_mobilizacao_adicional,
           status: novo_status,
           frete: state.frete,
@@ -405,6 +410,7 @@ function NovoOrcamento() {
           obra_descricao: state.obra_descricao,
           itens: state.itens,
           mobilizacoes_extras: state.mobilizacoes_extras,
+          servicos_extras: state.servicos_extras ?? [],
           valor_mobilizacao_adicional: state.valor_mobilizacao_adicional,
           condicoes_pagamento: empresa.data.texto_condicoes_pagamento_padrao,
           calc,
@@ -472,7 +478,7 @@ function NovoOrcamento() {
           <div className="rounded-md bg-primary/5 p-3 text-xs">
             <p className="font-semibold text-primary">Prévia da proposta</p>
             <p className="text-muted-foreground">
-              O número final será gerado ao salvar. Total: <b>{fmtBRL(calc.faturamento_bruto)}</b> · Lucro real: <b>{fmtBRL(calc.lucro_real)}</b>
+              O número final será gerado ao salvar. Total: <b>{fmtBRL(calc.faturamento_bruto + totalServicosExtras(state.servicos_extras))}</b> · Lucro real: <b>{fmtBRL(calc.lucro_real)}</b>
             </p>
           </div>
           <PropostaPreview data={propostaData} />
@@ -997,6 +1003,8 @@ function PrecoStep({
           <Row label="Lucro real" value={fmtBRL(calc.lucro_real)} strong highlight />
         </div>
       </Card>
+
+      <ServicosExtrasCard state={state} setState={setState} faturamento={calc.faturamento_bruto} />
     </div>
   );
 }
@@ -1046,6 +1054,72 @@ export function NumericInput({ value, onChange }: { value: number; onChange: (v:
       }}
       onFocus={(e) => e.target.select()}
     />
+  );
+}
+
+function ServicosExtrasCard({
+  state,
+  setState,
+  faturamento,
+}: {
+  state: FormState;
+  setState: React.Dispatch<React.SetStateAction<FormState>>;
+  faturamento: number;
+}) {
+  const lista = state.servicos_extras ?? [];
+  const setLista = (l: ServicoExtra[]) => setState((s) => ({ ...s, servicos_extras: l }));
+  const upd = (i: number, patch: Partial<ServicoExtra>) =>
+    setLista(lista.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const extras = totalServicosExtras(lista);
+  return (
+    <Card className="p-3">
+      <p className="font-display text-sm font-semibold text-primary">Serviços extras (opcional)</p>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Ex.: irrigação, biomanta. Entram na proposta como itens separados.
+      </p>
+      <div className="space-y-3">
+        {lista.map((x, i) => (
+          <div key={i} className="space-y-2 rounded-md border p-2">
+            <div className="flex gap-2">
+              <Input
+                className="h-11"
+                placeholder="Descrição do serviço"
+                value={x.descricao}
+                onChange={(e) => upd(i, { descricao: e.target.value })}
+              />
+              <Button type="button" variant="ghost" size="icon" onClick={() => setLista(lista.filter((_, j) => j !== i))} aria-label="Remover serviço">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Unidade">
+                <Input className="h-11" value={x.unidade} onChange={(e) => upd(i, { unidade: e.target.value.toUpperCase() })} />
+              </Field>
+              <Field label="Qtd">
+                <NumericInput value={x.quantidade} onChange={(v) => upd(i, { quantidade: v })} />
+              </Field>
+              <Field label="Valor unit.">
+                <NumericInput value={x.valor_unitario} onChange={(v) => upd(i, { valor_unitario: v })} />
+              </Field>
+            </div>
+            <p className="text-right font-mono text-xs">Total: {fmtBRL(x.quantidade * x.valor_unitario)}</p>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => setLista([...lista, { descricao: "", unidade: "UN", quantidade: 1, valor_unitario: 0 }])}
+        >
+          <Plus className="mr-1 h-4 w-4" /> Adicionar serviço extra
+        </Button>
+      </div>
+      <div className="mt-3 space-y-1.5 border-t pt-2 text-sm">
+        <Row label="Aplicação" value={fmtBRL(faturamento)} />
+        <Row label="Serviços extras" value={fmtBRL(extras)} />
+        <Row label="Total da proposta" value={fmtBRL(faturamento + extras)} strong highlight />
+      </div>
+    </Card>
   );
 }
 
