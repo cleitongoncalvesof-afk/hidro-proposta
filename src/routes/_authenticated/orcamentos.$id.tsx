@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { calcular } from "@/lib/calc";
+import { calcular, parseServicosExtras, totalServicosExtras } from "@/lib/calc";
 import { fmtBRL, fmtDate, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
 import { baixarPropostaPDF, gerarPropostaPDF, nomeArquivoProposta } from "@/lib/pdf";
@@ -137,6 +137,7 @@ function OrcamentoDetalhe() {
       quantidade_m2: Number(it.quantidade_m2),
       custo_insumo_m2: Number(it.custo_insumo_m2),
     })),
+    servicos_extras: parseServicosExtras(o.servicos_extras),
     mobilizacoes_extras: o.mobilizacoes_extras,
     valor_mobilizacao_adicional: Number(o.valor_mobilizacao_adicional),
     condicoes_pagamento: o.condicoes_pagamento_customizadas || empresa.data.texto_condicoes_pagamento_padrao,
@@ -144,13 +145,15 @@ function OrcamentoDetalhe() {
     criado_em: o.created_at,
   };
 
+  const totalGeral = calc.faturamento_bruto + totalServicosExtras(propostaData.servicos_extras);
+
   async function enviarWhatsapp() {
 
     if (sharing) return;
     setSharing(true);
     try {
       const tipoNome = o.proposta_tipo === "grama_liquida" ? "Grama Líquida" : "Mix de Sementes / Hidromanta";
-      const totalTxt = fmtBRL(calc.faturamento_bruto);
+      const totalTxt = fmtBRL(totalGeral);
       const numeroTxt = padProposta(o.numero);
       const nomeCli = o.cliente?.nome ?? "";
       const tel = (o.cliente?.telefone ?? "").replace(/\D/g, "");
@@ -226,7 +229,7 @@ function OrcamentoDetalhe() {
       <Card className="p-3">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Total</span>
-          <span className="font-mono text-lg font-semibold text-primary">{fmtBRL(calc.faturamento_bruto)}</span>
+          <span className="font-mono text-lg font-semibold text-primary">{fmtBRL(totalGeral)}</span>
         </div>
         <div className="mt-1 flex items-center justify-between text-xs">
           <span className="text-muted-foreground">Lucro real</span>

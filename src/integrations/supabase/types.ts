@@ -209,6 +209,7 @@ export type Database = {
           outras_despesas: number
           pdf_url: string | null
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
+          servicos_extras: Json
           status: Database["public"]["Enums"]["orcamento_status"]
           updated_at: string
           user_id: string
@@ -240,6 +241,7 @@ export type Database = {
           outras_despesas?: number
           pdf_url?: string | null
           proposta_tipo: Database["public"]["Enums"]["proposta_tipo"]
+          servicos_extras?: Json
           status?: Database["public"]["Enums"]["orcamento_status"]
           updated_at?: string
           user_id: string
@@ -271,6 +273,7 @@ export type Database = {
           outras_despesas?: number
           pdf_url?: string | null
           proposta_tipo?: Database["public"]["Enums"]["proposta_tipo"]
+          servicos_extras?: Json
           status?: Database["public"]["Enums"]["orcamento_status"]
           updated_at?: string
           user_id?: string
