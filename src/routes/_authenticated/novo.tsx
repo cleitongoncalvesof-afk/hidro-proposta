@@ -12,11 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
 import { Sprout, Leaf, ChevronLeft, ChevronRight, Trash2, Plus, Download, MessageCircle, Save } from "lucide-react";
-import { calcular } from "@/lib/calc";
+import { calcular, parseServicosExtras, totalServicosExtras, type ServicoExtra } from "@/lib/calc";
 import { fmtBRL, fmtPct, padProposta } from "@/lib/format";
 import { PropostaPreview, type PropostaData } from "@/components/PropostaPreview";
 import { baixarPropostaPDF } from "@/lib/pdf";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { useLogoSignedUrl } from "@/hooks/use-empresa";
 
 type Tipo = "grama_liquida" | "mix_sementes";

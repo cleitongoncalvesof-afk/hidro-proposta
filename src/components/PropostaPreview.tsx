@@ -1,4 +1,4 @@
-import type { OrcamentoCalc } from "@/lib/calc";
+import { totalServicosExtras, type OrcamentoCalc, type ServicoExtra } from "@/lib/calc";
 import { fmtBRL, fmtDate, fmtNum, padProposta } from "@/lib/format";
 import logoUrl from "@/assets/logo.svg";
 
@@ -51,6 +51,7 @@ export type PropostaData = {
   proposta_tipo: "grama_liquida" | "mix_sementes";
   obra_descricao?: string | null;
   itens: { descricao: string; quantidade_m2: number; custo_insumo_m2: number }[];
+  servicos_extras?: ServicoExtra[];
   mobilizacoes_extras: number;
   valor_mobilizacao_adicional: number;
   condicoes_pagamento: string;
@@ -135,10 +136,20 @@ export function PropostaPreview({ data }: { data: PropostaData }) {
               </td>
             </tr>
           ))}
+          {(data.servicos_extras ?? []).map((sx, j) => (
+            <tr key={`sx${j}`}>
+              <td className="border px-1 py-1">{String(itens.length + j + 1).padStart(2, "0")}</td>
+              <td className="border px-1 py-1">{sx.descricao}</td>
+              <td className="border px-1 py-1">{sx.unidade}</td>
+              <td className="border px-1 py-1 text-right font-mono">{fmtNum(sx.quantidade)}</td>
+              <td className="border px-1 py-1 text-right font-mono">{fmtBRL(sx.valor_unitario)}</td>
+              <td className="border px-1 py-1 text-right font-mono">{fmtBRL(sx.quantidade * sx.valor_unitario)}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
       <p className="mt-2 text-right font-display text-sm font-bold">
-        Valor Total Geral: {fmtBRL(calc.faturamento_bruto)}
+        Valor Total Geral: {fmtBRL(calc.faturamento_bruto + totalServicosExtras(data.servicos_extras))}
       </p>
 
       <h3 className="mt-4 border-y bg-primary/10 px-2 py-1 font-display text-[11px] font-bold uppercase">

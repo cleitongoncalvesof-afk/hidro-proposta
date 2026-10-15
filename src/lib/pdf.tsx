@@ -1,3 +1,4 @@
+import { totalServicosExtras } from "@/lib/calc";
 import {
   Document,
   Page,
@@ -113,8 +114,18 @@ function PropostaPDF({ data }: { data: PropostaData }) {
               <Text style={[styles.td, styles.cTot]}>{fmtBRL(calc.valor_por_m2 * it.quantidade_m2)}</Text>
             </View>
           ))}
+          {(data.servicos_extras ?? []).map((sx, j) => (
+            <View style={styles.tr} key={`sx${j}`}>
+              <Text style={[styles.td, styles.cItem]}>{String(itens.length + j + 1).padStart(2, "0")}</Text>
+              <Text style={[styles.td, styles.cDesc]}>{sx.descricao}</Text>
+              <Text style={[styles.td, styles.cUn]}>{sx.unidade}</Text>
+              <Text style={[styles.td, styles.cQtd]}>{fmtNum(sx.quantidade)}</Text>
+              <Text style={[styles.td, styles.cVal]}>{fmtBRL(sx.valor_unitario)}</Text>
+              <Text style={[styles.td, styles.cTot]}>{fmtBRL(sx.quantidade * sx.valor_unitario)}</Text>
+            </View>
+          ))}
         </View>
-        <Text style={styles.total}>Valor Total Geral: {fmtBRL(calc.faturamento_bruto)}</Text>
+        <Text style={styles.total}>Valor Total Geral: {fmtBRL(calc.faturamento_bruto + totalServicosExtras(data.servicos_extras))}</Text>
 
         <Text style={styles.section}>Condição de pagamento e parcelas</Text>
         <Text style={styles.p}>{data.condicoes_pagamento}</Text>
